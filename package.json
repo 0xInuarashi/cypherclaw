@@ -1,0 +1,31 @@
+{
+  "name": "cypherclaw",
+  "version": "0.1.0",
+  "description": "A personal AI assistant built from scratch",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "cypherclaw": "bin/cypherclaw.mjs"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "cypherclaw": "node --import tsx src/cli/index.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "tslog": "^4.9.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "tsx": "^4.15.1",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
