@@ -11,7 +11,12 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "cypherclaw": "node --import tsx src/cli/index.ts"
+    "cypherclaw": "node --import tsx src/cli/index.ts",
+    "chat": "npx tsx src/entry.ts chat",
+    "chat-debug": "npx tsx src/entry.ts chat --debug",
+    "chat-debug-raw": "npx tsx src/entry.ts chat --debug --raw",
+    "chat-debug-raw-tools": "npx tsx src/entry.ts chat --debug --raw --tool-confirm",
+    "chat-debug-tools": "npx tsx src/entry.ts chat --debug --tool-confirm"
   },
   "dependencies": {
     "chalk": "^5.3.0",

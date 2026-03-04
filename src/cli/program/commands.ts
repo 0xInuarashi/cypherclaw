@@ -21,5 +21,5 @@ export function registerCommands(program: Command): void {
   registerStartCommand(program);   // cypherclaw start
   registerStopCommand(program);    // cypherclaw stop
   registerStatusCommand(program);  // cypherclaw status
-  registerChatCommand(program);    // cypherclaw chat
+  registerChatCommand(program);    // cypherclaw chat  (--debug for full tracing)
 }

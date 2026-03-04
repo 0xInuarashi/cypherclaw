@@ -1,94 +1,200 @@
 // providers/anthropic.ts
 // -----------------------
-// Provider implementation for the Anthropic Messages API.
+// Provider implementation for the Anthropic Messages API, including the
+// agentic tool-calling loop.
 //
 // API reference: https://docs.anthropic.com/en/api/messages
 //
-// Anthropic's API is intentionally different from OpenAI's in one key way:
-// the system prompt is a top-level field on the request body, NOT a message
-// with role "system". We handle this by extracting any system message from the
-// history before sending, and passing it separately.
+// Anthropic's API differs from OpenAI's in two important ways:
 //
-// Request shape (POST https://api.anthropic.com/v1/messages):
-//   {
-//     model: "claude-3-5-haiku-20241022",
-//     max_tokens: 8096,
-//     system: "...",           ← extracted from messages, not part of the array
-//     messages: [              ← only "user" and "assistant" roles allowed here
-//       { role: "user",      content: "..." },
-//       { role: "assistant", content: "..." }
-//     ]
-//   }
+//   1. System prompt — sent as a top-level "system" field, NOT as a message
+//      with role "system". We extract it from the history before sending.
 //
-// Response shape (simplified):
-//   {
-//     content: [{ type: "text", text: "..." }]
-//   }
+//   2. Tool calling format — entirely different schema:
+//        Request tools:  { name, description, input_schema: { type, properties, required } }
+//        Tool calls in response: content blocks with type "tool_use"
+//        Tool results:   sent back as a "user" message containing blocks with
+//                        type "tool_result" — NOT as a separate "tool" role.
+//
+// The agentic loop here mirrors openai-compatible.ts in structure but uses
+// Anthropic's native types throughout.
+//
+// Request shape:
+//   { model, max_tokens, system?, messages, tools? }
+//   messages only contain role "user" | "assistant"
+//   content can be a string OR an array of content blocks
+//
+// Response shape:
+//   { content: ContentBlock[], stop_reason: "end_turn" | "tool_use" | ... }
+//   ContentBlock: { type: "text", text } | { type: "tool_use", id, name, input }
 
 import type { Message, Provider } from "./types.js";
+import type { ToolDefinition } from "../tools/types.js";
+import type { DebugLogger } from "../debug/events.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-
-// The API version header Anthropic requires on every request.
 const ANTHROPIC_VERSION = "2023-06-01";
-
-// Anthropic requires a max_tokens value. We use a large default that covers
-// most responses without artificially truncating long answers.
 const DEFAULT_MAX_TOKENS = 8192;
+const MAX_TOOL_ROUNDS = 10;
 
-// Minimal type covering only the fields we read from the response.
+// ── Native Anthropic API types ───────────────────────────────────────────────
+
+type AnthropicTextBlock = { type: "text"; text: string };
+type AnthropicToolUseBlock = { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
+type AnthropicToolResultBlock = { type: "tool_result"; tool_use_id: string; content: string };
+
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock | AnthropicToolResultBlock;
+
+// Anthropic messages have structured content — either a plain string (for
+// simple cases) or an array of typed content blocks (for tool interactions).
+type AnthropicMessage =
+  | { role: "user"; content: string | AnthropicContentBlock[] }
+  | { role: "assistant"; content: string | AnthropicContentBlock[] };
+
 type AnthropicResponse = {
-  content: Array<{
-    type: string;
-    text: string;
-  }>;
+  content: AnthropicContentBlock[];
+  stop_reason: "end_turn" | "tool_use" | string;
 };
 
-export function createAnthropicProvider(opts: { apiKey: string; model: string }): Provider {
+// Convert our ToolDefinition to Anthropic's tool schema.
+// Key difference from OpenAI: the parameters field is called "input_schema".
+function toAnthropicTool(tool: ToolDefinition) {
   return {
-    async chat(messages: Message[]): Promise<string> {
-      // Anthropic does not accept "system" as a message role — it must be sent
-      // as a separate top-level field. Extract it if present.
+    name: tool.name,
+    description: tool.description,
+    input_schema: tool.parameters,
+  };
+}
+
+// Convert our shared Message[] to Anthropic's native format.
+// System messages are extracted separately; only user/assistant remain.
+function toNativeMessages(messages: Message[]): AnthropicMessage[] {
+  return messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+}
+
+// ── Main factory ─────────────────────────────────────────────────────────────
+
+export function createAnthropicProvider(opts: {
+  apiKey: string;
+  model: string;
+  onEvent?: DebugLogger;
+}): Provider {
+  const emit = opts.onEvent ?? (() => {});
+
+  return {
+    async chat(messages: Message[], tools?: ToolDefinition[]): Promise<string> {
+      // Anthropic requires the system prompt as a top-level field.
       const systemMessage = messages.find((m) => m.role === "system");
-      const conversationMessages = messages.filter((m) => m.role !== "system");
 
-      const body: Record<string, unknown> = {
-        model: opts.model,
-        max_tokens: DEFAULT_MAX_TOKENS,
-        messages: conversationMessages,
-      };
+      // Build the starting native message history (no system messages).
+      const nativeMessages: AnthropicMessage[] = toNativeMessages(messages);
 
-      if (systemMessage) {
-        body.system = systemMessage.content;
+      // Prepare tools in Anthropic's format, or omit entirely if none.
+      const anthropicTools =
+        tools && tools.length > 0 ? tools.map(toAnthropicTool) : undefined;
+
+      // Build a lookup map for O(1) tool resolution by name.
+      const toolMap = new Map(tools?.map((t) => [t.name, t]) ?? []);
+
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        // Emit the outbound request so the debugger can show what's being sent.
+        emit({ type: "llm_request", round: round + 1, messages, tools: tools ?? [] });
+
+        // ── Step 1: call the API ────────────────────────────────────────────
+        const requestBody: Record<string, unknown> = {
+          model: opts.model,
+          max_tokens: DEFAULT_MAX_TOKENS,
+          messages: nativeMessages,
+          ...(anthropicTools ? { tools: anthropicTools } : {}),
+        };
+
+        // Only include "system" if we actually have one.
+        if (systemMessage) {
+          requestBody["system"] = systemMessage.content;
+        }
+
+        // Emit the raw request body before sending so the full payload is visible.
+        emit({ type: "llm_raw_request", body: requestBody });
+
+        const res = await fetch(ANTHROPIC_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": opts.apiKey,
+            "anthropic-version": ANTHROPIC_VERSION,
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Anthropic API error ${res.status}: ${text}`);
+        }
+
+        const data = (await res.json()) as AnthropicResponse;
+
+        // Emit the raw response body exactly as received from the API.
+        emit({ type: "llm_raw_response", body: data });
+
+        // ── Step 2: plain text reply → we're done ──────────────────────────
+        if (data.stop_reason === "end_turn") {
+          const textBlock = data.content.find(
+            (b): b is AnthropicTextBlock => b.type === "text",
+          );
+          if (!textBlock?.text) throw new Error("Anthropic returned an empty response");
+          emit({ type: "llm_response_text", text: textBlock.text });
+          return textBlock.text;
+        }
+
+        // ── Step 3: the model wants to call tools ──────────────────────────
+        if (data.stop_reason !== "tool_use") {
+          // Unexpected stop reason — return whatever text we have.
+          const textBlock = data.content.find(
+            (b): b is AnthropicTextBlock => b.type === "text",
+          );
+          return textBlock?.text ?? "(no response)";
+        }
+
+        // 3a. Record the assistant's full response (text + tool_use blocks)
+        //     so the model knows what it requested in the next turn.
+        nativeMessages.push({ role: "assistant", content: data.content });
+
+        // 3b. Collect all tool_use blocks from the response.
+        const toolUseBlocks = data.content.filter(
+          (b): b is AnthropicToolUseBlock => b.type === "tool_use",
+        );
+
+        // 3c. Execute each tool call in parallel.
+        const toolResults = await Promise.all(
+          toolUseBlocks.map(async (block): Promise<AnthropicToolResultBlock> => {
+            const tool = toolMap.get(block.name);
+
+            if (!tool) {
+              const output = `Error: unknown tool "${block.name}"`;
+              emit({ type: "tool_result", name: block.name, output });
+              return { type: "tool_result", tool_use_id: block.id, content: output };
+            }
+
+            // Emit the call intent before executing.
+            emit({ type: "llm_tool_call", name: block.name, args: block.input });
+
+            const output = await tool.execute(block.input);
+
+            emit({ type: "tool_result", name: block.name, output });
+            return { type: "tool_result", tool_use_id: block.id, content: output };
+          }),
+        );
+
+        // 3d. Anthropic requires tool results in a single "user" message
+        //     containing an array of tool_result blocks — one per tool call.
+        nativeMessages.push({ role: "user", content: toolResults });
+
+        // 3e. Loop back to step 1.
       }
 
-      const res = await fetch(ANTHROPIC_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Anthropic uses a custom header for the API key, not Authorization.
-          "x-api-key": opts.apiKey,
-          // Anthropic requires this header to select the API version.
-          "anthropic-version": ANTHROPIC_VERSION,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Anthropic API error ${res.status}: ${text}`);
-      }
-
-      const data = (await res.json()) as AnthropicResponse;
-
-      // Anthropic's response content is an array of blocks (text, tool_use,
-      // etc.). We find the first text block and return its text.
-      const textBlock = data.content.find((block) => block.type === "text");
-      if (!textBlock?.text) {
-        throw new Error("Anthropic returned an empty response");
-      }
-
-      return textBlock.text;
+      throw new Error(`Agentic loop exceeded ${MAX_TOOL_ROUNDS} tool call rounds`);
     },
   };
 }

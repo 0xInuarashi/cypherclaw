@@ -14,6 +14,7 @@
 
 import type { AppConfig } from "../config/index.js";
 import type { Provider } from "./types.js";
+import type { DebugLogger } from "../debug/events.js";
 import { createOpenAIProvider } from "./openai.js";
 import { createAnthropicProvider } from "./anthropic.js";
 import { createOpenRouterProvider } from "./openrouter.js";
@@ -21,18 +22,22 @@ import { createOpenRouterProvider } from "./openrouter.js";
 // Given the loaded app config, instantiate and return the correct provider.
 // The model field is always resolved (config guarantees a default), so we cast
 // it as a string here rather than threading the optional through every factory.
-export function createProvider(config: AppConfig): Provider {
+//
+// onEvent — optional debug callback. When provided, the provider will emit
+// structured trace events for every LLM request, tool call, and result.
+// Pass `createDebugLogger()` here to get human-readable console output.
+export function createProvider(config: AppConfig, onEvent?: DebugLogger): Provider {
   const model = config.model!;
 
   switch (config.provider) {
     case "openai":
-      return createOpenAIProvider({ apiKey: config.apiKey, model });
+      return createOpenAIProvider({ apiKey: config.apiKey, model, onEvent });
 
     case "anthropic":
-      return createAnthropicProvider({ apiKey: config.apiKey, model });
+      return createAnthropicProvider({ apiKey: config.apiKey, model, onEvent });
 
     case "openrouter":
-      return createOpenRouterProvider({ apiKey: config.apiKey, model });
+      return createOpenRouterProvider({ apiKey: config.apiKey, model, onEvent });
 
     default:
       // TypeScript's exhaustive check — if a new ProviderName is added to the

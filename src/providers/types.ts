@@ -1,29 +1,38 @@
 // providers/types.ts
 // -------------------
-// Shared types that every provider implementation must use.
-//
-// The key design decision here is the Provider interface: all three providers
-// (OpenAI, Anthropic, OpenRouter) implement the same `chat()` method. This
-// means the agent doesn't need to know which provider is active — it just calls
-// `provider.chat(history)` and gets a string back.
+// Shared types used by every provider implementation.
 //
 // Message roles:
 //   "system"    — Instructions given to the model before the conversation
 //                 starts. Sets the persona, constraints, and goals of the agent.
-//                 Sent once at the beginning of every request.
 //   "user"      — A message from the human.
-//   "assistant" — A previous reply from the model. Included in the history so
-//                 the model has context about what it already said.
+//   "assistant" — A previous reply from the model. Kept in history so the
+//                 model has context about what it already said.
+//
+// Tool calling:
+//   Providers optionally accept a list of ToolDefinitions. When tools are
+//   supplied, the model may respond with tool call requests instead of text.
+//   The provider runs the agentic loop internally (execute tool → feed result
+//   back → call again) and always returns a final plain-text string to the
+//   caller. The agent and channels never need to know the loop happened.
 
-// A single message in a conversation.
+import type { ToolDefinition } from "../tools/types.js";
+
+// Re-export so callers can import both from one place if they want.
+export type { ToolDefinition };
+
+// A single message in the conversation visible to our agent and providers.
+// Tool-call internals (result messages, etc.) are handled inside each provider
+// using their native API types — they never surface here.
 export type Message = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
 // The interface every provider must satisfy.
-// `chat` receives the full conversation history (including the system prompt
-// prepended by the agent) and returns the model's next reply as a plain string.
+//   messages — full conversation history including the system prompt.
+//   tools    — optional list of tools the model is allowed to call.
+// Returns the model's final text reply after any tool calls are resolved.
 export type Provider = {
-  chat(messages: Message[]): Promise<string>;
+  chat(messages: Message[], tools?: ToolDefinition[]): Promise<string>;
 };
