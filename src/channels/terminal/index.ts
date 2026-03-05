@@ -27,18 +27,27 @@ export type TerminalChannelOptions = {
   agent: AgentFn;
   // The text shown at the start of each input line. Defaults to "you> ".
   prompt?: string;
+  // An existing readline interface to reuse instead of creating a new one.
+  // Pass this when another part of the system (e.g. tool confirmation) also
+  // needs to call rl.question() — sharing a single interface avoids two
+  // readline instances fighting over stdin, which causes double-reads and
+  // corrupted output.
+  rl?: readline.Interface;
 };
 
 export async function runTerminalChannel(opts: TerminalChannelOptions): Promise<void> {
   const prompt = opts.prompt ?? "you> ";
 
-  // readline.createInterface wraps stdin/stdout to give us line-by-line input.
-  // `terminal: true` enables readline editing features (arrow keys, backspace).
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: true,
-  });
+  // Use the provided readline interface if one was passed in (e.g. when
+  // --tool-confirm is active and the confirm wrapper needs the same instance).
+  // Otherwise create a fresh one for this channel.
+  const rl =
+    opts.rl ??
+    readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true,
+    });
 
   console.log('[cypherclaw] Terminal channel ready. Type "exit" or press Ctrl+C to quit.\n');
 

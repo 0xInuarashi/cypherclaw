@@ -13,13 +13,24 @@
 // user types "exit" or presses Ctrl+C, the channel closes and this returns.
 //
 // Flags:
-//   --system / -s   Override the system prompt from the command line.
-//   --no-tools      Disable tool calling (plain chat mode, no shell access).
-//   --no-provider   Skip LLM config entirely and fall back to the echo stub.
-//   --debug         Print high-level agentic loop traces (rounds, tool calls, replies).
-//   --raw           Print the exact raw JSON bodies sent to and received from the API.
-//   Both flags can be combined: --debug --raw
+//   --system / -s    Override the system prompt from the command line.
+//   --no-tools       Disable tool calling (plain chat mode, no shell access).
+//   --no-provider    Skip LLM config entirely and fall back to the echo stub.
+//   --debug          Print high-level agentic loop traces (rounds, tool calls, replies).
+//   --raw            Print the exact raw JSON bodies sent to and received from the API.
+//   --tool-confirm   Require y/n approval before every tool call executes.
+//
+// Flags can be freely combined, e.g. --debug --raw --tool-confirm.
+//
+// readline sharing (--tool-confirm):
+//   When --tool-confirm is active we create ONE readline interface up front and
+//   share it between the confirm wrapper and the terminal channel. This is
+//   critical: if two readline interfaces both listen on stdin simultaneously,
+//   they race for keystrokes, causing double-reads, mangled output, and abrupt
+//   session termination. A single shared instance avoids all of that.
 
+import readline from "node:readline";
+import process from "node:process";
 import type { Command } from "commander";
 
 export function registerChatCommand(program: Command): void {
@@ -31,7 +42,15 @@ export function registerChatCommand(program: Command): void {
     .option("--no-provider", "Use echo stub instead of a real LLM provider")
     .option("--debug", "Print high-level agentic loop traces (rounds, tool calls, replies)")
     .option("--raw", "Print raw JSON request/response bodies exchanged with the API")
-    .action(async (opts: { system?: string; provider: boolean; tools: boolean; debug?: boolean; raw?: boolean }) => {
+    .option("--tool-confirm", "Require y/n approval before every tool call executes")
+    .action(async (opts: {
+      system?: string;
+      provider: boolean;
+      tools: boolean;
+      debug?: boolean;
+      raw?: boolean;
+      toolConfirm?: boolean;
+    }) => {
       const { createAgent } = await import("../../agent/index.js");
       const { runTerminalChannel } = await import("../../channels/terminal/index.js");
 
@@ -48,6 +67,17 @@ export function registerChatCommand(program: Command): void {
         onEvent = combineLoggers(...loggers);
       }
 
+      // When --tool-confirm is active, create the shared readline interface
+      // here so both the confirm wrapper and the terminal channel use the same
+      // instance. When it's not active, the terminal channel creates its own.
+      const sharedRl = opts.toolConfirm
+        ? readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+            terminal: true,
+          })
+        : undefined;
+
       // `opts.provider` is true by default; false when --no-provider is passed.
       let agentProvider;
       if (opts.provider) {
@@ -63,7 +93,16 @@ export function registerChatCommand(program: Command): void {
       let agentTools;
       if (opts.tools && agentProvider) {
         const { defaultTools } = await import("../../tools/index.js");
-        agentTools = defaultTools;
+
+        // If --tool-confirm is active, wrap every tool so it asks y/n before
+        // executing. The shared readline instance is passed so confirmation
+        // prompts don't conflict with the main chat readline.
+        if (opts.toolConfirm && sharedRl) {
+          const { wrapWithConfirm } = await import("../../tools/confirm.js");
+          agentTools = wrapWithConfirm(defaultTools, sharedRl);
+        } else {
+          agentTools = defaultTools;
+        }
       }
 
       const agent = createAgent({
@@ -72,6 +111,8 @@ export function registerChatCommand(program: Command): void {
         tools: agentTools,
       });
 
-      await runTerminalChannel({ agent });
+      // Pass the shared readline to the terminal channel when --tool-confirm
+      // is active; otherwise the channel creates its own internally.
+      await runTerminalChannel({ agent, rl: sharedRl });
     });
 }
