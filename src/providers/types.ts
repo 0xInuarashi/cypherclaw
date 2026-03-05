@@ -29,10 +29,38 @@ export type Message = {
   content: string;
 };
 
+// Token consumption reported by the LLM API for a single chat() call.
+// Covers both OpenAI-style (prompt/completion) and Anthropic-style
+// (input/output + cache) APIs — mapped to a unified shape.
+//   input        — tokens in the prompt sent to the model
+//   output       — tokens in the model's reply
+//   cacheRead    — prompt tokens served from the provider's prompt cache
+//   cacheCreation — prompt tokens written into the cache this call
+export type TokenUsage = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheCreation: number;
+};
+
+export function zeroUsage(): TokenUsage {
+  return { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+}
+
+export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
+  return {
+    input: a.input + b.input,
+    output: a.output + b.output,
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheCreation: a.cacheCreation + b.cacheCreation,
+  };
+}
+
 // The interface every provider must satisfy.
 //   messages — full conversation history including the system prompt.
 //   tools    — optional list of tools the model is allowed to call.
-// Returns the model's final text reply after any tool calls are resolved.
+// Returns the model's final text reply and the total token usage across
+// all tool-call rounds in this chat() invocation.
 export type Provider = {
-  chat(messages: Message[], tools?: ToolDefinition[]): Promise<string>;
+  chat(messages: Message[], tools?: ToolDefinition[]): Promise<{ text: string; usage: TokenUsage }>;
 };

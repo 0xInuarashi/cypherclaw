@@ -129,6 +129,21 @@ export function createDebugLogger(): DebugLogger {
         break;
       }
 
+      // ── Token usage for this round ───────────────────────────────────────
+      case "llm_token_usage": {
+        const { input, output, cacheRead, cacheCreation } = event.usage;
+        const parts: string[] = [
+          `in: ${input}`,
+          `out: ${output}`,
+        ];
+        if (cacheRead > 0)    parts.push(`cache_read: ${cacheRead}`);
+        if (cacheCreation > 0) parts.push(`cache_create: ${cacheCreation}`);
+        console.log(
+          C.dim(`  [tokens r${event.round}] `) + C.gray(parts.join("  ")),
+        );
+        break;
+      }
+
       // Raw events are intentionally ignored here — handled by createRawLogger.
       default:
         break;

@@ -148,17 +148,22 @@ export function registerChatCommand(program: Command): void {
         }
       }
 
-      // ── Session: append new messages after every turn ───────────────────────
-      // onAfterTurn fires with the full history after each user+assistant pair.
+      // ── Session: append new messages and token usage after every turn ─────────
+      // onAfterTurn fires with the full history and token usage for the turn.
       // We slice from savedMessageCount to get only the new messages, append
       // them, then advance the counter so the next turn's slice is correct.
-      const { appendToSession } = await import("../../sessions/index.js");
-      const onAfterTurn = async (history: import("../../providers/types.js").Message[]) => {
+      // Token usage is always recorded (even zero usage from the echo stub).
+      const { appendToSession, appendSessionTokens } = await import("../../sessions/index.js");
+      const onAfterTurn = async (
+        history: import("../../providers/types.js").Message[],
+        usage: import("../../providers/types.js").TokenUsage,
+      ) => {
         const newMessages = history.slice(savedMessageCount);
         if (newMessages.length > 0) {
           await appendToSession(sessionName, newMessages);
           savedMessageCount = history.length;
         }
+        await appendSessionTokens(sessionName, usage);
       };
 
       const agent = createAgent({

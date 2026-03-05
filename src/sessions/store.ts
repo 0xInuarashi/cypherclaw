@@ -26,7 +26,8 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Message } from "../providers/types.js";
+import type { Message, TokenUsage } from "../providers/types.js";
+import { zeroUsage, addUsage } from "../providers/types.js";
 
 // Default rolling window: last 50 turns (= 100 messages).
 export const DEFAULT_HISTORY_LIMIT = 50;
@@ -141,11 +142,81 @@ export async function appendToSession(name: string, messages: Message[]): Promis
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
+// Cumulative token totals for a session, summed across all turns on disk.
+// `turns` is the number of entries (one per completed agent turn) in the file.
+export type SessionTokenTotals = TokenUsage & { turns: number };
+
+// ── Token persistence ─────────────────────────────────────────────────────────
+
+// Returns the absolute path to the sidecar token-tracking file for a session.
+// Stored alongside the messages file: <session>.tokens.jsonl
+// Each line is one JSON entry: { input, output, cacheRead, cacheCreation }
+async function resolveTokensPath(name: string): Promise<string> {
+  const safe = validateSessionName(name);
+  const dir = await resolveSessionsDir();
+  return path.join(dir, `${safe}.tokens.jsonl`);
+}
+
+// Appends one token usage entry for the completed turn to the sidecar file.
+export async function appendSessionTokens(name: string, usage: TokenUsage): Promise<void> {
+  const filePath = await resolveTokensPath(name);
+  const line = JSON.stringify({
+    input: usage.input,
+    output: usage.output,
+    cacheRead: usage.cacheRead,
+    cacheCreation: usage.cacheCreation,
+  }) + "\n";
+  await fs.appendFile(filePath, line, "utf-8");
+}
+
+// Reads the sidecar token file and returns cumulative totals.
+// Returns null if no token data exists yet for this session.
+export async function loadSessionTokenTotals(name: string): Promise<SessionTokenTotals | null> {
+  const filePath = await resolveTokensPath(name);
+
+  let raw: string;
+  try {
+    raw = await fs.readFile(filePath, "utf-8");
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+
+  let totals: TokenUsage = zeroUsage();
+  let turns = 0;
+
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as Partial<TokenUsage>;
+      if (
+        typeof parsed.input === "number" &&
+        typeof parsed.output === "number"
+      ) {
+        totals = addUsage(totals, {
+          input: parsed.input,
+          output: parsed.output,
+          cacheRead: parsed.cacheRead ?? 0,
+          cacheCreation: parsed.cacheCreation ?? 0,
+        });
+        turns++;
+      }
+    } catch {
+      // Skip malformed lines.
+    }
+  }
+
+  return turns === 0 ? null : { ...totals, turns };
+}
+
 export type SessionInfo = {
   name: string;
   // Total message count across the full file (not the windowed view).
   messageCount: number;
   updatedAt: Date;
+  // Token totals for this session (null if no token data recorded yet).
+  tokens: SessionTokenTotals | null;
 };
 
 // Lists all sessions sorted by most-recently-updated first.
@@ -163,20 +234,23 @@ export async function listSessions(): Promise<SessionInfo[]> {
 
   await Promise.all(
     entries
-      .filter((e) => e.isFile() && e.name.endsWith(".jsonl"))
+      .filter((e) => e.isFile() && e.name.endsWith(".jsonl") && !e.name.endsWith(".tokens.jsonl"))
       .map(async (entry) => {
         const absPath = path.join(dir, entry.name);
+        const sessionName = entry.name.slice(0, -6); // strip ".jsonl"
         try {
-          const [stat, raw] = await Promise.all([
+          const [stat, raw, tokens] = await Promise.all([
             fs.stat(absPath),
             fs.readFile(absPath, "utf-8"),
+            loadSessionTokenTotals(sessionName),
           ]);
           // Count non-empty lines — each line is one message.
           const messageCount = raw.split("\n").filter((l) => l.trim()).length;
           results.push({
-            name: entry.name.slice(0, -6), // strip ".jsonl"
+            name: sessionName,
             messageCount,
             updatedAt: stat.mtime,
+            tokens,
           });
         } catch {
           // Skip files we can't read.
@@ -189,14 +263,22 @@ export async function listSessions(): Promise<SessionInfo[]> {
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
-// Deletes a session file. Returns true if deleted, false if it didn't exist.
+// Deletes a session file and its token sidecar. Returns true if deleted, false
+// if the session file didn't exist (missing sidecar is silently ignored).
 export async function deleteSession(name: string): Promise<boolean> {
   const filePath = await resolveSessionPath(name);
   try {
     await fs.unlink(filePath);
-    return true;
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
     throw err;
   }
+  // Best-effort removal of the token sidecar — don't fail if it's absent.
+  const tokensPath = await resolveTokensPath(name);
+  try {
+    await fs.unlink(tokensPath);
+  } catch {
+    // Not an error — sidecar simply may not exist yet.
+  }
+  return true;
 }

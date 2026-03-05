@@ -9,8 +9,10 @@ export {
   resolveSessionPath,
   loadSession,
   appendToSession,
+  appendSessionTokens,
+  loadSessionTokenTotals,
   listSessions,
   deleteSession,
 } from "./store.js";
 
-export type { SessionInfo } from "./store.js";
+export type { SessionInfo, SessionTokenTotals } from "./store.js";

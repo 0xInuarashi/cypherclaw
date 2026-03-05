@@ -28,7 +28,8 @@
 //   { content: ContentBlock[], stop_reason: "end_turn" | "tool_use" | ... }
 //   ContentBlock: { type: "text", text } | { type: "tool_use", id, name, input }
 
-import type { Message, Provider } from "./types.js";
+import type { Message, Provider, TokenUsage } from "./types.js";
+import { zeroUsage, addUsage } from "./types.js";
 import type { ToolDefinition } from "../tools/types.js";
 import type { DebugLogger } from "../debug/events.js";
 
@@ -54,6 +55,12 @@ type AnthropicMessage =
 type AnthropicResponse = {
   content: AnthropicContentBlock[];
   stop_reason: "end_turn" | "tool_use" | string;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 };
 
 // Convert our ToolDefinition to Anthropic's tool schema.
@@ -84,7 +91,7 @@ export function createAnthropicProvider(opts: {
   const emit = opts.onEvent ?? (() => {});
 
   return {
-    async chat(messages: Message[], tools?: ToolDefinition[]): Promise<string> {
+    async chat(messages: Message[], tools?: ToolDefinition[]): Promise<{ text: string; usage: TokenUsage }> {
       // Anthropic requires the system prompt as a top-level field.
       const systemMessage = messages.find((m) => m.role === "system");
 
@@ -97,6 +104,8 @@ export function createAnthropicProvider(opts: {
 
       // Build a lookup map for O(1) tool resolution by name.
       const toolMap = new Map(tools?.map((t) => [t.name, t]) ?? []);
+
+      let totalUsage: TokenUsage = zeroUsage();
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         // Emit the outbound request so the debugger can show what's being sent.
@@ -138,6 +147,16 @@ export function createAnthropicProvider(opts: {
         // Emit the raw response body exactly as received from the API.
         emit({ type: "llm_raw_response", body: data });
 
+        // Parse and accumulate token usage for this round.
+        const roundUsage: TokenUsage = {
+          input: data.usage?.input_tokens ?? 0,
+          output: data.usage?.output_tokens ?? 0,
+          cacheRead: data.usage?.cache_read_input_tokens ?? 0,
+          cacheCreation: data.usage?.cache_creation_input_tokens ?? 0,
+        };
+        totalUsage = addUsage(totalUsage, roundUsage);
+        emit({ type: "llm_token_usage", round: round + 1, usage: roundUsage });
+
         // ── Step 2: plain text reply → we're done ──────────────────────────
         if (data.stop_reason === "end_turn") {
           const textBlock = data.content.find(
@@ -145,7 +164,7 @@ export function createAnthropicProvider(opts: {
           );
           if (!textBlock?.text) throw new Error("Anthropic returned an empty response");
           emit({ type: "llm_response_text", text: textBlock.text });
-          return textBlock.text;
+          return { text: textBlock.text, usage: totalUsage };
         }
 
         // ── Step 3: the model wants to call tools ──────────────────────────
@@ -154,7 +173,7 @@ export function createAnthropicProvider(opts: {
           const textBlock = data.content.find(
             (b): b is AnthropicTextBlock => b.type === "text",
           );
-          return textBlock?.text ?? "(no response)";
+          return { text: textBlock?.text ?? "(no response)", usage: totalUsage };
         }
 
         // 3a. Record the assistant's full response (text + tool_use blocks)
@@ -194,7 +213,7 @@ export function createAnthropicProvider(opts: {
         // 3e. Loop back to step 1.
       }
 
-      throw new Error(`Agentic loop exceeded ${MAX_TOOL_ROUNDS} tool call rounds`);
+      throw new Error(`Agentic loop exceeded ${MAX_TOOL_ROUNDS} tool call rounds — total usage so far: ${JSON.stringify(totalUsage)}`);
     },
   };
 }

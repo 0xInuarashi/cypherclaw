@@ -11,7 +11,7 @@
 // This is intentionally minimal — no dependency needed, easy to test, and
 // the synchronous callback model is fine since logging is fire-and-forget.
 
-import type { Message } from "../providers/types.js";
+import type { Message, TokenUsage } from "../providers/types.js";
 import type { ToolDefinition } from "../tools/types.js";
 
 // Every event the provider can emit, as a discriminated union.
@@ -58,6 +58,15 @@ export type DebugEvent =
       type: "tool_result";
       name: string;
       output: string;
+    }
+
+  // Fired after each API response with the token counts for that round.
+  // Providers emit this once per HTTP call so callers can see per-round cost
+  // as well as accumulate a session total.
+  | {
+      type: "llm_token_usage";
+      round: number;
+      usage: TokenUsage;
     };
 
 // The callback type providers accept.

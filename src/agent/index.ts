@@ -29,8 +29,9 @@
 //                  If omitted, the agent falls back to an echo stub.
 //   tools        — list of tools the model is allowed to call.
 
-import type { Provider } from "../providers/types.js";
+import type { Provider, TokenUsage } from "../providers/types.js";
 import type { Message } from "../providers/types.js";
+import { zeroUsage } from "../providers/types.js";
 import type { ToolDefinition } from "../tools/types.js";
 
 // The function signature every agent must satisfy.
@@ -47,10 +48,11 @@ export type AgentOptions = {
   // Pass the result of loadSession() here to resume a previous conversation.
   initialHistory?: Message[];
   // Called after every completed turn (user message + assistant reply) with
-  // the full current history. Use this to persist new messages incrementally.
+  // the full current history and the token usage for this turn. Use this to
+  // persist new messages and accumulate session token counts incrementally.
   // The callback receives only the history snapshot — callers track the offset
   // of what's already been saved and slice accordingly (see register.chat.ts).
-  onAfterTurn?: (history: Message[]) => Promise<void>;
+  onAfterTurn?: (history: Message[], usage: TokenUsage) => Promise<void>;
 };
 
 // Factory that creates and returns an agent function.
@@ -70,7 +72,7 @@ export function createAgent(opts?: AgentOptions): AgentFn {
       const reply = `Echo: ${userMessage}`;
       history.push({ role: "user", content: userMessage });
       history.push({ role: "assistant", content: reply });
-      if (opts?.onAfterTurn) await opts.onAfterTurn(history);
+      if (opts?.onAfterTurn) await opts.onAfterTurn(history, zeroUsage());
       return reply;
     }
 
@@ -86,16 +88,17 @@ export function createAgent(opts?: AgentOptions): AgentFn {
     messages.push(...history);
 
     // Call the provider. If tools are configured, the provider runs the
-    // agentic loop internally and returns the final text reply.
-    const reply = await opts.provider.chat(messages, opts.tools);
+    // agentic loop internally and returns the final text reply plus token usage.
+    const { text: reply, usage } = await opts.provider.chat(messages, opts.tools);
 
     // Store the assistant's reply so future turns have full context.
     history.push({ role: "assistant", content: reply });
 
     // Notify the caller that a full turn is complete. The caller uses this
-    // to append the two new messages (user + assistant) to the session file.
+    // to append the two new messages (user + assistant) to the session file
+    // and record the token cost for this turn.
     if (opts?.onAfterTurn) {
-      await opts.onAfterTurn(history);
+      await opts.onAfterTurn(history, usage);
     }
 
     return reply;

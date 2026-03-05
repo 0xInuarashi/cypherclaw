@@ -21,7 +21,8 @@
 //   These differ from our shared Message type — they include tool-specific
 //   roles ("tool") and structured tool_call fields that the API requires.
 
-import type { Message, Provider } from "./types.js";
+import type { Message, Provider, TokenUsage } from "./types.js";
+import { zeroUsage, addUsage } from "./types.js";
 import type { ToolDefinition } from "../tools/types.js";
 import type { DebugLogger } from "../debug/events.js";
 
@@ -54,6 +55,11 @@ type OAIResponse = {
     };
     finish_reason: string;
   }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  };
 };
 
 // Convert our shared Message type into the OpenAI native format.
@@ -89,10 +95,12 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
   const emit = opts.onEvent ?? (() => {});
 
   return {
-    async chat(messages: Message[], tools?: ToolDefinition[]): Promise<string> {
+    async chat(messages: Message[], tools?: ToolDefinition[]): Promise<{ text: string; usage: TokenUsage }> {
       const nativeMessages: OAIMessage[] = toNativeMessages(messages);
       const oaiTools = tools && tools.length > 0 ? tools.map(toOAITool) : undefined;
       const toolMap = new Map(tools?.map((t) => [t.name, t]) ?? []);
+
+      let totalUsage: TokenUsage = zeroUsage();
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         // Emit the outbound request so the debugger can show what's being sent.
@@ -127,6 +135,17 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
 
         // Emit the raw response body exactly as received from the API.
         emit({ type: "llm_raw_response", body: data });
+
+        // Parse and accumulate token usage for this round.
+        const roundUsage: TokenUsage = {
+          input: data.usage?.prompt_tokens ?? 0,
+          output: data.usage?.completion_tokens ?? 0,
+          cacheRead: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+          cacheCreation: 0,
+        };
+        totalUsage = addUsage(totalUsage, roundUsage);
+        emit({ type: "llm_token_usage", round: round + 1, usage: roundUsage });
+
         const choice = data.choices[0];
 
         // ── Step 2: plain text reply → we're done ────────────────────────────
@@ -134,7 +153,7 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
           const text = choice.message.content;
           if (!text) throw new Error("Model returned an empty response");
           emit({ type: "llm_response_text", text });
-          return text;
+          return { text, usage: totalUsage };
         }
 
         // ── Step 3: the model wants to call tools ────────────────────────────
@@ -189,7 +208,7 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
         // 3d. Loop back to step 1.
       }
 
-      throw new Error(`Agentic loop exceeded ${MAX_TOOL_ROUNDS} tool call rounds`);
+      throw new Error(`Agentic loop exceeded ${MAX_TOOL_ROUNDS} tool call rounds — total usage so far: ${JSON.stringify(totalUsage)}`);
     },
   };
 }

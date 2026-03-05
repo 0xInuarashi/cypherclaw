@@ -51,10 +51,12 @@ export function registerSessionsCommand(program: Command): void {
       // Column widths adapt to the longest name (min 20 chars wide).
       const nameWidth  = Math.max(20, ...list.map((s) => s.name.length)) + 2;
       const msgWidth   = 10;
+      const tokWidth   = 22;
 
       const header =
         "NAME".padEnd(nameWidth) +
         "MESSAGES".padEnd(msgWidth) +
+        "TOKENS (in+out)".padEnd(tokWidth) +
         "UPDATED";
 
       const divider = "─".repeat(header.length);
@@ -63,9 +65,13 @@ export function registerSessionsCommand(program: Command): void {
       console.log(divider);
 
       for (const session of list) {
+        const tokStr = session.tokens
+          ? `${session.tokens.input}+${session.tokens.output}`
+          : "—";
         const row =
           session.name.padEnd(nameWidth) +
           String(session.messageCount).padEnd(msgWidth) +
+          tokStr.padEnd(tokWidth) +
           relativeTime(session.updatedAt);
         console.log(row);
       }
