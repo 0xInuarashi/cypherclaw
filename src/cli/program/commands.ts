@@ -13,13 +13,15 @@
 
 import type { Command } from "commander";
 import { registerChatCommand } from "./register.chat.js";
+import { registerSessionsCommand } from "./register.sessions.js";
 import { registerStartCommand } from "./register.start.js";
 import { registerStatusCommand } from "./register.status.js";
 import { registerStopCommand } from "./register.stop.js";
 
 export function registerCommands(program: Command): void {
-  registerStartCommand(program);   // cypherclaw start
-  registerStopCommand(program);    // cypherclaw stop
-  registerStatusCommand(program);  // cypherclaw status
-  registerChatCommand(program);    // cypherclaw chat  (--debug for full tracing)
+  registerStartCommand(program);    // cypherclaw start
+  registerStopCommand(program);     // cypherclaw stop
+  registerStatusCommand(program);   // cypherclaw status
+  registerChatCommand(program);     // cypherclaw chat  (--session, --debug, --raw, --tool-confirm)
+  registerSessionsCommand(program); // cypherclaw sessions list / delete
 }

@@ -43,6 +43,14 @@ export type AgentOptions = {
   // Tools forwarded to the provider so the model can call them.
   // If omitted (or empty), the model operates in plain chat mode.
   tools?: ToolDefinition[];
+  // Pre-populate the history with messages loaded from a saved session.
+  // Pass the result of loadSession() here to resume a previous conversation.
+  initialHistory?: Message[];
+  // Called after every completed turn (user message + assistant reply) with
+  // the full current history. Use this to persist new messages incrementally.
+  // The callback receives only the history snapshot — callers track the offset
+  // of what's already been saved and slice accordingly (see register.chat.ts).
+  onAfterTurn?: (history: Message[]) => Promise<void>;
 };
 
 // Factory that creates and returns an agent function.
@@ -51,13 +59,19 @@ export function createAgent(opts?: AgentOptions): AgentFn {
   // Running log of user ↔ assistant messages.
   // System messages are NOT stored here; they're prepended fresh on every
   // call so the system prompt is always the first message the model sees.
-  const history: Message[] = [];
+  // If initialHistory was provided (resuming a saved session), seed from it.
+  const history: Message[] = opts?.initialHistory ? [...opts.initialHistory] : [];
 
   return async (userMessage: string): Promise<string> => {
     // Echo stub: no provider → reflect the input back.
-    // Useful for testing the full pipeline without API credentials.
+    // Still maintains history and fires onAfterTurn so sessions work even
+    // without a real LLM (useful for testing the full pipeline).
     if (!opts?.provider) {
-      return `Echo: ${userMessage}`;
+      const reply = `Echo: ${userMessage}`;
+      history.push({ role: "user", content: userMessage });
+      history.push({ role: "assistant", content: reply });
+      if (opts?.onAfterTurn) await opts.onAfterTurn(history);
+      return reply;
     }
 
     // Append the user's message to history before calling the model.
@@ -77,6 +91,12 @@ export function createAgent(opts?: AgentOptions): AgentFn {
 
     // Store the assistant's reply so future turns have full context.
     history.push({ role: "assistant", content: reply });
+
+    // Notify the caller that a full turn is complete. The caller uses this
+    // to append the two new messages (user + assistant) to the session file.
+    if (opts?.onAfterTurn) {
+      await opts.onAfterTurn(history);
+    }
 
     return reply;
   };

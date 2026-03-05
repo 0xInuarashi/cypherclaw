@@ -13,14 +13,23 @@
 // user types "exit" or presses Ctrl+C, the channel closes and this returns.
 //
 // Flags:
-//   --system / -s    Override the system prompt from the command line.
-//   --no-tools       Disable tool calling (plain chat mode, no shell access).
-//   --no-provider    Skip LLM config entirely and fall back to the echo stub.
-//   --debug          Print high-level agentic loop traces (rounds, tool calls, replies).
-//   --raw            Print the exact raw JSON bodies sent to and received from the API.
-//   --tool-confirm   Require y/n approval before every tool call executes.
+//   --system / -s      Override the system prompt from the command line.
+//   --no-tools         Disable tool calling (plain chat mode, no shell access).
+//   --no-provider      Skip LLM config entirely and fall back to the echo stub.
+//   --debug            Print high-level agentic loop traces (rounds, tool calls, replies).
+//   --raw              Print the exact raw JSON bodies sent to and received from the API.
+//   --tool-confirm     Require y/n approval before every tool call executes.
+//   --session <name>   Save/resume a named conversation session.
+//                        • If the session file exists, history is loaded and the
+//                          conversation resumes from where it left off.
+//                        • If not, a new session file is created on the first turn.
+//                        • After every turn, new messages are appended to the file.
+//   --history-limit <n> When resuming a session, only load the last N turns into
+//                        context (default: 50). Each turn = 1 user + 1 assistant
+//                        message. Older messages stay on disk but are not sent to
+//                        the model, keeping token usage bounded.
 //
-// Flags can be freely combined, e.g. --debug --raw --tool-confirm.
+// Flags can be freely combined, e.g. --session my-proj --debug --tool-confirm.
 //
 // readline sharing (--tool-confirm):
 //   When --tool-confirm is active we create ONE readline interface up front and
@@ -31,6 +40,7 @@
 
 import readline from "node:readline";
 import process from "node:process";
+import { randomUUID } from "node:crypto";
 import type { Command } from "commander";
 
 export function registerChatCommand(program: Command): void {
@@ -43,6 +53,12 @@ export function registerChatCommand(program: Command): void {
     .option("--debug", "Print high-level agentic loop traces (rounds, tool calls, replies)")
     .option("--raw", "Print raw JSON request/response bodies exchanged with the API")
     .option("--tool-confirm", "Require y/n approval before every tool call executes")
+    .option("--session <name>", "Save/resume a named conversation session")
+    .option(
+      "--history-limit <n>",
+      "Max turns to load from a saved session (default: 50)",
+      "50",
+    )
     .action(async (opts: {
       system?: string;
       provider: boolean;
@@ -50,6 +66,8 @@ export function registerChatCommand(program: Command): void {
       debug?: boolean;
       raw?: boolean;
       toolConfirm?: boolean;
+      session?: string;
+      historyLimit: string;
     }) => {
       const { createAgent } = await import("../../agent/index.js");
       const { runTerminalChannel } = await import("../../channels/terminal/index.js");
@@ -78,6 +96,31 @@ export function registerChatCommand(program: Command): void {
           })
         : undefined;
 
+      // ── Session: resolve name and load existing history ─────────────────────
+      // Every chat gets a session — either the user-provided name or a fresh
+      // UUID. This means all conversations are persisted automatically.
+      // We track `savedMessageCount` so onAfterTurn can cheaply compute which
+      // messages are new (history.slice(savedMessageCount)) without diffing.
+      const sessionName = opts.session ?? randomUUID();
+      let initialHistory;
+      let savedMessageCount = 0;
+      const historyLimit = Math.max(1, parseInt(opts.historyLimit, 10) || 50);
+
+      {
+        const { loadSession } = await import("../../sessions/index.js");
+        const loaded = await loadSession(sessionName, historyLimit);
+        if (loaded && loaded.length > 0) {
+          initialHistory = loaded;
+          savedMessageCount = loaded.length;
+          console.log(
+            `[cypherclaw] Resumed session "${sessionName}" ` +
+              `(${loaded.length} messages loaded, limit: ${historyLimit} turns)\n`,
+          );
+        } else {
+          console.log(`[cypherclaw] Session: ${sessionName}\n`);
+        }
+      }
+
       // `opts.provider` is true by default; false when --no-provider is passed.
       let agentProvider;
       if (opts.provider) {
@@ -105,10 +148,25 @@ export function registerChatCommand(program: Command): void {
         }
       }
 
+      // ── Session: append new messages after every turn ───────────────────────
+      // onAfterTurn fires with the full history after each user+assistant pair.
+      // We slice from savedMessageCount to get only the new messages, append
+      // them, then advance the counter so the next turn's slice is correct.
+      const { appendToSession } = await import("../../sessions/index.js");
+      const onAfterTurn = async (history: import("../../providers/types.js").Message[]) => {
+        const newMessages = history.slice(savedMessageCount);
+        if (newMessages.length > 0) {
+          await appendToSession(sessionName, newMessages);
+          savedMessageCount = history.length;
+        }
+      };
+
       const agent = createAgent({
         systemPrompt: opts.system ?? process.env.CYPHERCLAW_SYSTEM_PROMPT,
         provider: agentProvider,
         tools: agentTools,
+        initialHistory,
+        onAfterTurn,
       });
 
       // Pass the shared readline to the terminal channel when --tool-confirm
