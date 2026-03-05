@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
-    "start": "node dist/index.js",
+    "start": "npx tsx src/entry.ts chat --debug",
     "cypherclaw": "node --import tsx src/cli/index.ts",
     "chat": "npx tsx src/entry.ts chat",
     "chat-debug": "npx tsx src/entry.ts chat --debug",
