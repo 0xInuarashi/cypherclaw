@@ -125,7 +125,7 @@ export function createDebugLogger(): DebugLogger {
       // ── Tool execution result ────────────────────────────────────────────
       case "tool_result": {
         console.log("\n" + C.magenta(C.bold("[tool ✓]")) + " " + C.magenta(event.name));
-        console.log(indent(trunc(event.output, 400), C.gray("  │ ")));
+        console.log(indent(event.output, C.gray("  │ ")));
         break;
       }
 
