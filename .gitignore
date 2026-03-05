@@ -3,3 +3,4 @@ ref
 dist
 .env
 .cypherclaw
+*.js
