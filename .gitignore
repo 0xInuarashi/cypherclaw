@@ -3,4 +3,5 @@ ref
 dist
 .env
 .cypherclaw
+.workdir
 *.js

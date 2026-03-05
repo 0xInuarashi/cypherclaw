@@ -36,7 +36,7 @@ import type { DebugLogger } from "../debug/events.js";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MAX_TOKENS = 8192;
-const MAX_TOOL_ROUNDS = 10;
+const MAX_TOOL_ROUNDS = 100;
 
 // ── Native Anthropic API types ───────────────────────────────────────────────
 

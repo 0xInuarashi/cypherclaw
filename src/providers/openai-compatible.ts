@@ -27,7 +27,7 @@ import type { ToolDefinition } from "../tools/types.js";
 import type { DebugLogger } from "../debug/events.js";
 
 // How many tool-call rounds to allow before giving up.
-const MAX_TOOL_ROUNDS = 10;
+const MAX_TOOL_ROUNDS = 100;
 
 // ── Native OpenAI API types ──────────────────────────────────────────────────
 
