@@ -16,11 +16,14 @@
     "chat-debug": "npx tsx src/entry.ts chat --debug",
     "chat-debug-raw": "npx tsx src/entry.ts chat --debug --raw",
     "chat-debug-raw-tools": "npx tsx src/entry.ts chat --debug --raw --tool-confirm",
-    "chat-debug-tools": "npx tsx src/entry.ts chat --debug --tool-confirm"
+    "chat-debug-tools": "npx tsx src/entry.ts chat --debug --tool-confirm",
+    "discord-debug": "npx tsx src/entry.ts discord --debug",
+    "discord": "npx tsx src/entry.ts discord"
   },
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
+    "discord.js": "^14.25.1",
     "dotenv": "^16.4.5",
     "tslog": "^4.9.2",
     "zod": "^3.23.8"
