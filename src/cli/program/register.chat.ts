@@ -166,8 +166,10 @@ export function registerChatCommand(program: Command): void {
         await appendSessionTokens(sessionName, usage);
       };
 
+      const { DEFAULT_SYSTEM_PROMPT } = await import("../../agent/system-prompt.js");
+
       const agent = createAgent({
-        systemPrompt: opts.system ?? process.env.CYPHERCLAW_SYSTEM_PROMPT,
+        systemPrompt: opts.system ?? process.env.CYPHERCLAW_SYSTEM_PROMPT ?? DEFAULT_SYSTEM_PROMPT,
         provider: agentProvider,
         tools: agentTools,
         initialHistory,

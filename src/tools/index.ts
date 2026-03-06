@@ -7,13 +7,17 @@
 // only writing a new file and adding it to this array.
 //
 // Current built-in tools:
-//   bash         — Run any shell command; the most versatile tool.
-//   read_file    — Read a file from disk by path.
-//   write_file   — Write (create/overwrite) a file on disk.
-//   append_file  — Append content to a file without overwriting existing content.
-//   web_fetch    — Fetch a public web page and return clean, readable text.
-//   web_search   — Search the web and return a ranked list of results.
-//   temp_email   — Create disposable inboxes and read incoming mail autonomously.
+//   bash          — Run any shell command; the most versatile tool.
+//   read_file     — Read a file from disk by path.
+//   write_file    — Write (create/overwrite) a file on disk.
+//   append_file   — Append content to a file without overwriting existing content.
+//   web_fetch     — Fetch a public web page and return clean, readable text.
+//   web_search    — Search the web and return a ranked list of results.
+//   temp_email    — Create disposable inboxes and read incoming mail autonomously.
+//   list_memory   — List files in the agent memory store (.cypherclaw/memory/).
+//   read_memory   — Read a file from the agent memory store.
+//   write_memory  — Write (create/overwrite) a file in the agent memory store.
+//   append_memory — Append content to a file in the agent memory store.
 
 export type { ToolDefinition } from "./types/types.js";
 export { bashTool } from "./bash.js";
@@ -23,6 +27,10 @@ export { appendFileTool } from "./append-file.js";
 export { webFetchTool } from "./web-fetch.js";
 export { webSearchTool } from "./web-search.js";
 export { tempEmailTool } from "./temp-email.js";
+export { listMemoryTool } from "./memory-list.js";
+export { readMemoryTool } from "./memory-read.js";
+export { writeMemoryTool } from "./memory-write.js";
+export { appendMemoryTool } from "./memory-append.js";
 
 import { bashTool } from "./bash.js";
 import { readFileTool } from "./read-file.js";
@@ -31,6 +39,10 @@ import { appendFileTool } from "./append-file.js";
 import { webFetchTool } from "./web-fetch.js";
 import { webSearchTool } from "./web-search.js";
 import { tempEmailTool } from "./temp-email.js";
+import { listMemoryTool } from "./memory-list.js";
+import { readMemoryTool } from "./memory-read.js";
+import { writeMemoryTool } from "./memory-write.js";
+import { appendMemoryTool } from "./memory-append.js";
 import type { ToolDefinition } from "./types/types.js";
 
 // The set of tools enabled by default in every chat session.
@@ -42,4 +54,8 @@ export const defaultTools: ToolDefinition[] = [
   webFetchTool,
   webSearchTool,
   tempEmailTool,
+  listMemoryTool,
+  readMemoryTool,
+  writeMemoryTool,
+  appendMemoryTool,
 ];
