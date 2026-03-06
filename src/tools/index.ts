@@ -14,10 +14,11 @@
 //   web_fetch     — Fetch a public web page and return clean, readable text.
 //   web_search    — Search the web and return a ranked list of results.
 //   temp_email    — Create disposable inboxes and read incoming mail autonomously.
-//   list_memory   — List files in the agent memory store (.cypherclaw/memory/).
-//   read_memory   — Read a file from the agent memory store.
-//   write_memory  — Write (create/overwrite) a file in the agent memory store.
-//   append_memory — Append content to a file in the agent memory store.
+//   list_memory   — List files in session or global memory store.
+//   read_memory   — Read a file from session or global memory store.
+//   write_memory  — Write (create/overwrite) a file in session or global memory store.
+//   append_memory — Append content to a file in session or global memory store.
+//   delete_memory — Delete a stale file from global memory.
 //   list_secrets  — List names of stored secrets (values never revealed).
 //   get_secret    — Retrieve a secret value by name.
 //   set_secret    — Store a named secret in the encrypted secrets store.
@@ -33,10 +34,11 @@ export { appendFileTool } from "./append-file.js";
 export { webFetchTool } from "./web-fetch.js";
 export { webSearchTool } from "./web-search.js";
 export { tempEmailTool } from "./temp-email.js";
-export { listMemoryTool } from "./memory-list.js";
-export { readMemoryTool } from "./memory-read.js";
+export { listMemoryTool, createListMemoryTool } from "./memory-list.js";
+export { readMemoryTool, createReadMemoryTool } from "./memory-read.js";
 export { writeMemoryTool, createWriteMemoryTool } from "./memory-write.js";
 export { appendMemoryTool, createAppendMemoryTool } from "./memory-append.js";
+export { deleteMemoryTool } from "./memory-delete.js";
 export { secretListTool } from "./secret-list.js";
 export { secretGetTool } from "./secret-get.js";
 export { secretSetTool } from "./secret-set.js";
@@ -51,10 +53,11 @@ import { appendFileTool } from "./append-file.js";
 import { webFetchTool } from "./web-fetch.js";
 import { webSearchTool } from "./web-search.js";
 import { tempEmailTool } from "./temp-email.js";
-import { listMemoryTool } from "./memory-list.js";
-import { readMemoryTool } from "./memory-read.js";
+import { listMemoryTool, createListMemoryTool } from "./memory-list.js";
+import { readMemoryTool, createReadMemoryTool } from "./memory-read.js";
 import { writeMemoryTool, createWriteMemoryTool } from "./memory-write.js";
 import { appendMemoryTool, createAppendMemoryTool } from "./memory-append.js";
+import { deleteMemoryTool } from "./memory-delete.js";
 import { secretListTool } from "./secret-list.js";
 import { secretGetTool } from "./secret-get.js";
 import { secretSetTool } from "./secret-set.js";
@@ -76,6 +79,7 @@ export const defaultTools: ToolDefinition[] = [
   readMemoryTool,
   writeMemoryTool,
   appendMemoryTool,
+  deleteMemoryTool,
   secretListTool,
   secretGetTool,
   secretSetTool,
@@ -84,11 +88,12 @@ export const defaultTools: ToolDefinition[] = [
   sessionReadTool,
 ];
 
-// Returns a copy of defaultTools with write_memory and append_memory stamped
-// with the given session ID. Every entry written by the agent will be prefixed
-// with [session:<sessionId>] so callers can trace which session produced it.
+// Returns a copy of defaultTools with all memory tools stamped with the given
+// session ID so they resolve to the correct scoped directories at runtime.
 export function createSessionTools(sessionId: string): ToolDefinition[] {
   return defaultTools.map((tool) => {
+    if (tool.name === "list_memory") return createListMemoryTool(sessionId);
+    if (tool.name === "read_memory") return createReadMemoryTool(sessionId);
     if (tool.name === "write_memory") return createWriteMemoryTool(sessionId);
     if (tool.name === "append_memory") return createAppendMemoryTool(sessionId);
     return tool;
