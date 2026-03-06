@@ -12,6 +12,7 @@
 //   write_file   — Write (create/overwrite) a file on disk.
 //   append_file  — Append content to a file without overwriting existing content.
 //   web_fetch    — Fetch a public web page and return clean, readable text.
+//   web_search   — Search the web and return a ranked list of results.
 
 export type { ToolDefinition } from "./types.js";
 export { bashTool } from "./bash.js";
@@ -19,12 +20,14 @@ export { readFileTool } from "./read-file.js";
 export { writeFileTool } from "./write-file.js";
 export { appendFileTool } from "./append-file.js";
 export { webFetchTool } from "./web-fetch.js";
+export { webSearchTool } from "./web-search.js";
 
 import { bashTool } from "./bash.js";
 import { readFileTool } from "./read-file.js";
 import { writeFileTool } from "./write-file.js";
 import { appendFileTool } from "./append-file.js";
 import { webFetchTool } from "./web-fetch.js";
+import { webSearchTool } from "./web-search.js";
 import type { ToolDefinition } from "./types.js";
 
 // The set of tools enabled by default in every chat session.
@@ -34,4 +37,5 @@ export const defaultTools: ToolDefinition[] = [
   writeFileTool,
   appendFileTool,
   webFetchTool,
+  webSearchTool,
 ];
