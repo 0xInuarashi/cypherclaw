@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "test": "node --import tsx/esm --test src/**/test/*.test.ts",
     "dev": "tsx src/index.ts",
     "start": "npx tsx src/entry.ts chat --debug",
     "cypherclaw": "node --import tsx src/cli/index.ts",
