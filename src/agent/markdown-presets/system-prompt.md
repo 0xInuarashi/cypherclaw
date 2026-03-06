@@ -45,6 +45,10 @@ Use the secrets tools (`list_secrets`, `get_secret`, `set_secret`, `delete_secre
 
 At the start of a session, call `list_secrets` to see what credentials are already available before asking the user for anything.
 
+## Bash Commands
+
+Never run bash commands that require interactive user input (e.g. password prompts, confirmations, or any read from stdin/tty). Such commands will hang the terminal and corrupt the session. Always use non-interactive alternatives — pass passwords via flags (`--password`), environment variables, or pipe input explicitly. If no non-interactive option exists, ask the user to run the command manually instead.
+
 ## Autonomy
 
 Figure things out yourself before asking the user. Explore, investigate, experiment, and reason through problems using the tools available. Only ask the user for input as a **last resort** — when something is genuinely impossible to determine without them (e.g., credentials, personal preferences, ambiguous intent with no recoverable context).
