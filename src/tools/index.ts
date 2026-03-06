@@ -27,6 +27,8 @@
 //   delete_secret     — Remove a named secret from the secrets store.
 //   list_sessions — List all saved sessions with message counts and timestamps.
 //   read_session  — Read the full conversation history of a past session.
+//   list_guides   — List built-in guides (filename + title) to check for relevant setup instructions.
+//   read_guide    — Read the full contents of a built-in guide by filename.
 
 export type { ToolDefinition } from "./types/types.js";
 export { bashTool } from "./bash.js";
@@ -49,6 +51,7 @@ export { secretOverwriteTool } from "./secret-overwrite.js";
 export { secretDeleteTool } from "./secret-delete.js";
 export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
+export { listGuidesTool, readGuideTool } from "./guide-read.js";
 
 import { bashTool } from "./bash.js";
 import { readFileTool } from "./read-file.js";
@@ -70,6 +73,7 @@ import { secretOverwriteTool } from "./secret-overwrite.js";
 import { secretDeleteTool } from "./secret-delete.js";
 import { sessionListTool } from "./session-list.js";
 import { sessionReadTool } from "./session-read.js";
+import { listGuidesTool, readGuideTool } from "./guide-read.js";
 import type { ToolDefinition } from "./types/types.js";
 
 // The set of tools enabled by default in every chat session.
@@ -94,6 +98,8 @@ export const defaultTools: ToolDefinition[] = [
   secretDeleteTool,
   sessionListTool,
   sessionReadTool,
+  listGuidesTool,
+  readGuideTool,
 ];
 
 // Returns a copy of defaultTools with all memory tools stamped with the given

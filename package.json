@@ -24,6 +24,9 @@
     "gateway:start": "npx tsx src/entry.ts start",
     "gateway:stop": "npx tsx src/entry.ts stop",
     "gateway:status": "npx tsx src/entry.ts status",
+    "prod:start": "node --env-file=.env dist/entry.js start",
+    "prod:stop": "node --env-file=.env dist/entry.js stop",
+    "prod:status": "node --env-file=.env dist/entry.js status",
     "token:create": "npx tsx src/entry.ts token create",
     "token:list": "npx tsx src/entry.ts token list",
     "token:revoke": "npx tsx src/entry.ts token revoke"

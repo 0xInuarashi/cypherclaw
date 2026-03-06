@@ -136,6 +136,52 @@ Register this connector with the gateway. Call this once on connector startup. R
 
 ---
 
+## Running the Gateway
+
+### Development (local machine)
+
+```bash
+npm run gateway        # foreground — logs inline, Ctrl+C to stop
+npm run gateway:start  # background daemon
+npm run gateway:stop
+npm run gateway:status
+```
+
+### Production (VPS)
+
+Build once, then use the compiled output so the background daemon spawns correctly:
+
+```bash
+git clone <repo> cypherclaw && cd cypherclaw
+npm install
+cp .env.example .env   # fill in CYPHERCLAW_PROVIDER and your API key
+npm run build
+```
+
+```bash
+npm run prod:start     # start daemon (detaches — survives SSH logout)
+npm run prod:status    # check running pid and port
+npm run prod:stop      # graceful shutdown
+```
+
+The daemon inherits all env vars from the parent shell. `--env-file=.env` in the npm scripts handles this automatically.
+
+### Token management
+
+```bash
+# dev
+npx tsx --env-file=.env src/entry.ts token create <name>
+npx tsx --env-file=.env src/entry.ts token list
+npx tsx --env-file=.env src/entry.ts token revoke <name>
+
+# prod (after build)
+node --env-file=.env dist/entry.js token create <name>
+node --env-file=.env dist/entry.js token list
+node --env-file=.env dist/entry.js token revoke <name>
+```
+
+---
+
 ## Connector Quickstart
 
 A minimal connector in Node.js:
