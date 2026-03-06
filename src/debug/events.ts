@@ -12,7 +12,7 @@
 // the synchronous callback model is fine since logging is fire-and-forget.
 
 import type { Message, TokenUsage } from "../providers/types.js";
-import type { ToolDefinition } from "../tools/types.js";
+import type { ToolDefinition } from "../tools/types/types.js";
 
 // Every event the provider can emit, as a discriminated union.
 // The `type` field lets the logger switch on the event kind.

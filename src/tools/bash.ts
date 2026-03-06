@@ -22,7 +22,7 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 
 const execAsync = promisify(exec);
 

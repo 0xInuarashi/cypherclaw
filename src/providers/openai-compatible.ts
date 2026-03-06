@@ -23,7 +23,7 @@
 
 import type { Message, Provider, TokenUsage } from "./types.js";
 import { zeroUsage, addUsage } from "./types.js";
-import type { ToolDefinition } from "../tools/types.js";
+import type { ToolDefinition } from "../tools/types/types.js";
 import type { DebugLogger } from "../debug/events.js";
 
 // How many tool-call rounds to allow before giving up.

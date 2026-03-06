@@ -18,7 +18,7 @@
 // just by changing CYPHERCLAW_MODEL — no new account needed.
 
 import type { Message, Provider } from "./types.js";
-import type { ToolDefinition } from "../tools/types.js";
+import type { ToolDefinition } from "../tools/types/types.js";
 import type { DebugLogger } from "../debug/events.js";
 import { createOpenAICompatibleProvider } from "./openai-compatible.js";
 

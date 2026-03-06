@@ -1,4 +1,4 @@
-// tools/types.ts
+// tools/types/types.ts
 // ---------------
 // The shared type that every tool must implement.
 //

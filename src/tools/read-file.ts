@@ -13,7 +13,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 
 const MAX_OUTPUT_CHARS = 20_000;
 

@@ -15,7 +15,7 @@
 //   web_search   — Search the web and return a ranked list of results.
 //   temp_email   — Create disposable inboxes and read incoming mail autonomously.
 
-export type { ToolDefinition } from "./types.js";
+export type { ToolDefinition } from "./types/types.js";
 export { bashTool } from "./bash.js";
 export { readFileTool } from "./read-file.js";
 export { writeFileTool } from "./write-file.js";
@@ -31,7 +31,7 @@ import { appendFileTool } from "./append-file.js";
 import { webFetchTool } from "./web-fetch.js";
 import { webSearchTool } from "./web-search.js";
 import { tempEmailTool } from "./temp-email.js";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 
 // The set of tools enabled by default in every chat session.
 export const defaultTools: ToolDefinition[] = [

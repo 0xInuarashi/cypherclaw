@@ -1,4 +1,4 @@
-// tools/confirm.ts
+// tools/utils/confirm.ts
 // -----------------
 // Wraps a set of ToolDefinitions so that every tool call requires explicit
 // user approval before it executes.
@@ -28,7 +28,7 @@
 //   reasoning without crashing the loop.
 
 import type readline from "node:readline";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "../types/types.js";
 
 // ANSI colour helpers — keep output visually distinct without a chalk dependency.
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;

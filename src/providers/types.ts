@@ -16,7 +16,7 @@
 //   back → call again) and always returns a final plain-text string to the
 //   caller. The agent and channels never need to know the loop happened.
 
-import type { ToolDefinition } from "../tools/types.js";
+import type { ToolDefinition } from "../tools/types/types.js";
 
 // Re-export so callers can import both from one place if they want.
 export type { ToolDefinition };

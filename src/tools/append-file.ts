@@ -22,7 +22,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 
 export const appendFileTool: ToolDefinition = {
   name: "append_file",

@@ -24,7 +24,7 @@
 //              through our readability pipeline so the model receives clean
 //              prose rather than raw HTML.
 
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 import { cleanText } from "./utils/browser-utils.js";
 import { extractReadableContent } from "./utils/readability.js";
 

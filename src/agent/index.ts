@@ -32,7 +32,7 @@
 import type { Provider, TokenUsage } from "../providers/types.js";
 import type { Message } from "../providers/types.js";
 import { zeroUsage } from "../providers/types.js";
-import type { ToolDefinition } from "../tools/types.js";
+import type { ToolDefinition } from "../tools/types/types.js";
 
 // The function signature every agent must satisfy.
 export type AgentFn = (message: string) => Promise<string>;

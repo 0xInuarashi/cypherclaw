@@ -29,7 +29,7 @@
 //
 //   All fail → structured error returned so the model can decide next steps.
 
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 import { validatePublicUrl, cleanText, truncateOutput } from "./utils/browser-utils.js";
 import { extractReadableContent } from "./utils/readability.js";
 

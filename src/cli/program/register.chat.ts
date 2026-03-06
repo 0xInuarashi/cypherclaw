@@ -141,7 +141,7 @@ export function registerChatCommand(program: Command): void {
         // executing. The shared readline instance is passed so confirmation
         // prompts don't conflict with the main chat readline.
         if (opts.toolConfirm && sharedRl) {
-          const { wrapWithConfirm } = await import("../../tools/confirm.js");
+          const { wrapWithConfirm } = await import("../../tools/utils/confirm.js");
           agentTools = wrapWithConfirm(defaultTools, sharedRl);
         } else {
           agentTools = defaultTools;

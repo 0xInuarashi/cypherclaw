@@ -9,7 +9,7 @@
 // wrapper that supplies the OpenAI-specific URL and auth header.
 
 import type { Message, Provider } from "./types.js";
-import type { ToolDefinition } from "../tools/types.js";
+import type { ToolDefinition } from "../tools/types/types.js";
 import type { DebugLogger } from "../debug/events.js";
 import { createOpenAICompatibleProvider } from "./openai-compatible.js";
 

@@ -35,7 +35,7 @@
 //   Tier 6 — Exa  (requires EXA_API_KEY, skipped if absent)
 //     Neural/semantic search. Great for research and nuanced queries.
 
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 import { cleanText, truncateOutput } from "./utils/browser-utils.js";
 
 // ── Constants ─────────────────────────────────────────────────────────────────

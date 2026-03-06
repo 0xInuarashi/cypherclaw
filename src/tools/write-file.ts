@@ -14,7 +14,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types/types.js";
 
 export const writeFileTool: ToolDefinition = {
   name: "write_file",
