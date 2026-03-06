@@ -17,6 +17,7 @@ import { registerSessionsCommand } from "./register.sessions.js";
 import { registerStartCommand } from "./register.start.js";
 import { registerStatusCommand } from "./register.status.js";
 import { registerStopCommand } from "./register.stop.js";
+import { registerTokenCommand } from "./register.token.js";
 
 export function registerCommands(program: Command): void {
   registerStartCommand(program);    // cypherclaw start
@@ -24,4 +25,5 @@ export function registerCommands(program: Command): void {
   registerStatusCommand(program);   // cypherclaw status
   registerChatCommand(program);     // cypherclaw chat  (--session, --debug, --raw, --tool-confirm)
   registerSessionsCommand(program); // cypherclaw sessions list / delete
+  registerTokenCommand(program);    // cypherclaw token create / list / revoke
 }

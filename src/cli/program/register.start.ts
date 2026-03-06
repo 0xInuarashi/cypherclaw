@@ -48,7 +48,9 @@ export function registerStartCommand(program: Command): void {
         // Signal handlers allow Ctrl+C / SIGTERM to gracefully close the server
         // (which also deletes the PID file) before exiting.
         const { startGatewayServer } = await import("../../gateway/server.js");
-        const gw = await startGatewayServer({ port });
+        const { buildAgentFactory } = await import("../../gateway/bootstrap.js");
+        const getAgent = await buildAgentFactory();
+        const gw = await startGatewayServer({ port, getAgent });
 
         process.on("SIGINT", async () => {
           console.log("\n[cypherclaw] Shutting down...");
