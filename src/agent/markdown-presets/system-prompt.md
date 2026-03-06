@@ -38,9 +38,9 @@ Global memory **can become stale**. Use `delete_memory` to remove entries that a
 **Memory is mandatory, not optional.** Follow this protocol on every session:
 
 ### Session start (always do this first)
-1. Call `list_memory` with `scope="session"` to see what was saved in this session previously.
-2. Call `list_memory` with `scope="global"` to see long-term memory.
-3. Call `read_memory` on every file that could be relevant to the user's request or context. Always read `actions.md` (session scope) if it exists — it is the canonical record of what has already been done this session.
+1. Call `list_memory` with `scope="global"` and `read_memory` on **every** file returned — no exceptions. Global memory is always small and always relevant. This is where preferences, identity, and project facts live.
+2. Call `list_memory` with `scope="session"` and read `actions.md` if it exists — it is the canonical record of what has already been done this session.
+3. Read any other session memory files relevant to the user's request.
 4. If the user's request involves something you might have seen before, call `search_memory` to find relevant notes across all memory files before starting work.
 5. Only then respond or begin working.
 
