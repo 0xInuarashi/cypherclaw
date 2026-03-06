@@ -33,8 +33,11 @@
 // the daemon is restarted with valid config.
 
 import process from "node:process";
+import { config as loadDotenv } from "dotenv";
 import { startGatewayServer } from "./server.js";
 import { buildAgentFactory } from "./bootstrap.js";
+
+loadDotenv({ override: false });
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
