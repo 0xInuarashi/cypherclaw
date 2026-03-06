@@ -84,7 +84,7 @@ export function registerStartCommand(program: Command): void {
         const child = spawn(process.execPath, [daemonEntry, "--port", String(port)], {
           detached: true,
           stdio: "ignore",
-          env: { ...process.env },
+          env: { ...process.env, CYPHERCLAW_DAEMON_CHILD: "1" },
         });
 
         child.unref();

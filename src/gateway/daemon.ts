@@ -33,6 +33,7 @@
 // the daemon is restarted with valid config.
 
 import process from "node:process";
+import { spawn } from "node:child_process";
 import { config as loadDotenv } from "dotenv";
 import { startGatewayServer } from "./server.js";
 import { buildAgentFactory } from "./bootstrap.js";
@@ -44,6 +45,24 @@ loadDotenv({ override: false });
 const args = process.argv.slice(2);
 const portIndex = args.indexOf("--port");
 const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : undefined;
+
+// ── Self-daemonization ────────────────────────────────────────────────────────
+//
+// When invoked directly (e.g. `npm run gateway:daemon`) rather than being
+// spawned by `cypherclaw start`, re-launch ourselves as a detached background
+// process and exit. The child sets CYPHERCLAW_DAEMON_CHILD=1 so it skips
+// this block and proceeds straight to starting the server.
+
+if (!process.env["CYPHERCLAW_DAEMON_CHILD"]) {
+  const child = spawn(process.execPath, process.argv.slice(1), {
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env, CYPHERCLAW_DAEMON_CHILD: "1" },
+  });
+  child.unref();
+  console.log(`[cypherclaw] Gateway daemon spawned (pid ${child.pid})`);
+  process.exit(0);
+}
 
 // ── Gateway startup ───────────────────────────────────────────────────────────
 
