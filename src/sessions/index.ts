@@ -7,6 +7,7 @@ export {
   validateSessionName,
   resolveSessionsDir,
   resolveSessionPath,
+  resolveSessionWorkdir,
   loadSession,
   appendToSession,
   appendSessionTokens,

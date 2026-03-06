@@ -107,8 +107,9 @@ export function registerChatCommand(program: Command): void {
       const historyLimit = Math.max(1, parseInt(opts.historyLimit, 10) || 50);
 
       {
-        const { loadSession } = await import("../../sessions/index.js");
+        const { loadSession, resolveSessionWorkdir } = await import("../../sessions/index.js");
         const loaded = await loadSession(sessionName, historyLimit);
+        await resolveSessionWorkdir(sessionName);
         if (loaded && loaded.length > 0) {
           initialHistory = loaded;
           savedMessageCount = loaded.length;
@@ -166,10 +167,16 @@ export function registerChatCommand(program: Command): void {
         await appendSessionTokens(sessionName, usage);
       };
 
-      const { DEFAULT_SYSTEM_PROMPT } = await import("../../agent/system-prompt.js");
+      const { renderDefaultSystemPrompt, renderSystemPrompt } = await import("../../agent/system-prompt.js");
+      const systemPrompt =
+        opts.system
+          ? renderSystemPrompt(opts.system, sessionName)
+          : process.env.CYPHERCLAW_SYSTEM_PROMPT
+            ? renderSystemPrompt(process.env.CYPHERCLAW_SYSTEM_PROMPT, sessionName)
+            : renderDefaultSystemPrompt(sessionName);
 
       const agent = createAgent({
-        systemPrompt: opts.system ?? process.env.CYPHERCLAW_SYSTEM_PROMPT ?? DEFAULT_SYSTEM_PROMPT,
+        systemPrompt,
         provider: agentProvider,
         tools: agentTools,
         initialHistory,

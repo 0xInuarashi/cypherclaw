@@ -64,6 +64,16 @@ export async function resolveSessionPath(name: string): Promise<string> {
   return path.join(dir, `${safe}.jsonl`);
 }
 
+// Returns <cwd>/.cypherclaw/workdir/<session>/, creating it if needed.
+// Work directories are session-scoped so scratch files and generated output do
+// not collide across concurrent or resumed chats in the same project.
+export async function resolveSessionWorkdir(name: string): Promise<string> {
+  const safe = validateSessionName(name);
+  const dir = path.join(process.cwd(), ".cypherclaw", "workdir", safe);
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
+}
+
 // ── Rolling window ────────────────────────────────────────────────────────────
 // Slices the message array to the last (limit * 2) messages, then nudges the
 // start forward until the first kept message is a "user" message. This avoids

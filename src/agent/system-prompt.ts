@@ -1,11 +1,12 @@
 // agent/system-prompt.ts
 // ----------------------
-// Loads the default system prompt from the markdown preset on disk and exposes
-// it as a plain string. Using a .md file for the content keeps the prompt
-// human-readable and easy to edit without touching TypeScript.
+// Loads the default system prompt template from the markdown preset on disk and
+// exposes a small renderer for injecting session-specific values. Using a .md
+// file for the content keeps the prompt human-readable and easy to edit
+// without touching TypeScript.
 //
-// The file is read synchronously at module load time so callers can import
-// DEFAULT_SYSTEM_PROMPT as a plain constant — no async required.
+// The file is read synchronously at module load time so callers can render the
+// prompt without async setup.
 //
 // File resolution uses import.meta.url so the path stays correct regardless
 // of where the process is launched from. This works with both tsx (dev) and
@@ -17,7 +18,17 @@ import { join, dirname } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const DEFAULT_SYSTEM_PROMPT: string = readFileSync(
+export const DEFAULT_SYSTEM_PROMPT_TEMPLATE: string = readFileSync(
   join(__dirname, "markdown-presets/system-prompt.md"),
   "utf-8",
 ).trim();
+
+const SESSION_ID_PLACEHOLDER = "{{SESSION_ID}}";
+
+export function renderSystemPrompt(prompt: string, sessionId: string): string {
+  return prompt.replaceAll(SESSION_ID_PLACEHOLDER, sessionId);
+}
+
+export function renderDefaultSystemPrompt(sessionId: string): string {
+  return renderSystemPrompt(DEFAULT_SYSTEM_PROMPT_TEMPLATE, sessionId);
+}
