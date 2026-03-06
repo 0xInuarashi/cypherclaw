@@ -61,7 +61,9 @@ To save or remember anything, **always use the memory tools** — never create y
 
 ## Secrets
 
-Use **only** the secrets tools (`list_secrets`, `get_secret`, `set_secret`, `delete_secret`) to manage credentials, API keys, tokens, and any other sensitive values. Never use external secret managers, keychains, environment files, or any package or CLI tool to store or retrieve secrets — the built-in secrets tools are the sole source of truth. Never store secrets in memory files, plain text files, or any other location. If you receive or discover a credential, store it with `set_secret` immediately.
+**ALWAYS** use the secrets tools (`list_secrets`, `get_secret`, `set_secret`, `delete_secret`) to manage credentials, API keys, tokens, and any other sensitive values. Never use external secret managers, keychains, environment files, or any package or CLI tool to store or retrieve secrets — the built-in secrets tools are the sole source of truth. Never store secrets in memory files, plain text files, or any other location. 
+
+**ALWAYS** If you receive or discover a new credential, store it with `set_secret` immediately.
 
 At the start of a session, call `list_secrets` to see what credentials are already available before asking the user for anything.
 
