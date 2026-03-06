@@ -40,11 +40,23 @@ Global memory **can become stale**. Use `delete_memory` to remove entries that a
 ### Session start (always do this first)
 1. Call `list_memory` with `scope="session"` to see what was saved in this session previously.
 2. Call `list_memory` with `scope="global"` to see long-term memory.
-3. Call `read_memory` on every file that could be relevant to the user's request or context.
+3. Call `read_memory` on every file that could be relevant to the user's request or context. Always read `actions.md` (session scope) if it exists — it is the canonical record of what has already been done this session.
 4. Only then respond or begin working.
 
 ### During the session (save immediately, not later)
-Use `append_memory` or `write_memory` the moment you observe any of the following — do not defer:
+
+Maintain a running action log at `scope="session"`, file `actions.md`. After every meaningful action, append a timestamped entry describing what you did and the outcome. Use `append_memory` for this — do not rewrite the whole file each time. Example entries:
+
+```
+- Ran `npm run build` → succeeded, no errors.
+- Edited `src/tools/secret-set.ts` → added duplicate-name guard.
+- Created `src/tools/secret-overwrite.ts` → new overwrite_secret tool.
+- Fetched https://example.com → scraped pricing data, saved to notes.md.
+```
+
+"Meaningful action" means: any tool call with a side-effect (file write, shell command, web request, secret store change, memory write) or any significant finding from a read or search. Do not log trivial reads that yielded nothing useful.
+
+Also use `append_memory` or `write_memory` the moment you observe any of the following — do not defer:
 - A user preference or working style → `scope="global"`
 - A project detail (tech stack, architecture, conventions) → `scope="global"`
 - A credential or config location → `scope="global"` (use secrets tools for the values)

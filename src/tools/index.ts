@@ -21,8 +21,9 @@
 //   delete_memory — Delete a stale file from global memory.
 //   list_secrets  — List names of stored secrets (values never revealed).
 //   get_secret    — Retrieve a secret value by name.
-//   set_secret    — Store a named secret in the encrypted secrets store.
-//   delete_secret — Remove a named secret from the secrets store.
+//   set_secret        — Store a named secret in the encrypted secrets store (fails if already exists).
+//   overwrite_secret  — Replace the value of an existing named secret.
+//   delete_secret     — Remove a named secret from the secrets store.
 //   list_sessions — List all saved sessions with message counts and timestamps.
 //   read_session  — Read the full conversation history of a past session.
 
@@ -42,6 +43,7 @@ export { deleteMemoryTool } from "./memory-delete.js";
 export { secretListTool } from "./secret-list.js";
 export { secretGetTool } from "./secret-get.js";
 export { secretSetTool } from "./secret-set.js";
+export { secretOverwriteTool } from "./secret-overwrite.js";
 export { secretDeleteTool } from "./secret-delete.js";
 export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
@@ -61,6 +63,7 @@ import { deleteMemoryTool } from "./memory-delete.js";
 import { secretListTool } from "./secret-list.js";
 import { secretGetTool } from "./secret-get.js";
 import { secretSetTool } from "./secret-set.js";
+import { secretOverwriteTool } from "./secret-overwrite.js";
 import { secretDeleteTool } from "./secret-delete.js";
 import { sessionListTool } from "./session-list.js";
 import { sessionReadTool } from "./session-read.js";
@@ -83,6 +86,7 @@ export const defaultTools: ToolDefinition[] = [
   secretListTool,
   secretGetTool,
   secretSetTool,
+  secretOverwriteTool,
   secretDeleteTool,
   sessionListTool,
   sessionReadTool,

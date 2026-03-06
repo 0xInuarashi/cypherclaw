@@ -4,8 +4,8 @@
 // (.cypherclaw/secrets/store.enc).
 //
 // The encryption key is loaded from .cypherclaw/secrets.key and generated
-// automatically on first use. Existing secrets with the same name are
-// overwritten silently.
+// automatically on first use. Rejects writes if a secret with the same name
+// already exists — use overwrite_secret to replace an existing secret.
 
 import type { ToolDefinition } from "./types/types.js";
 import { readSecrets, writeSecrets } from "./secrets-utils.js";
@@ -15,7 +15,7 @@ export const secretSetTool: ToolDefinition = {
   description:
     "Store a named secret (API key, password, token, etc.) in the encrypted secrets store. " +
     "Use this whenever you need to persist a credential for future sessions. " +
-    "Existing secrets with the same name are overwritten.",
+    "Fails if a secret with the same name already exists — use overwrite_secret to replace it.",
 
   parameters: {
     type: "object",
@@ -42,6 +42,9 @@ export const secretSetTool: ToolDefinition = {
 
     try {
       const secrets = await readSecrets();
+      if (Object.prototype.hasOwnProperty.call(secrets, name)) {
+        return `Error: a secret named "${name}" already exists. Use overwrite_secret to replace it.`;
+      }
       secrets[name] = value;
       await writeSecrets(secrets);
       return `Secret "${name}" stored successfully.`;
