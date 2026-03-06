@@ -33,7 +33,9 @@
 // the daemon is restarted with valid config.
 
 import process from "node:process";
+import path from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { config as loadDotenv } from "dotenv";
 import { startGatewayServer } from "./server.js";
 import { buildAgentFactory } from "./bootstrap.js";
@@ -54,7 +56,12 @@ const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : undefined;
 // this block and proceeds straight to starting the server.
 
 if (!process.env["CYPHERCLAW_DAEMON_CHILD"]) {
-  const child = spawn(process.execPath, process.argv.slice(1), {
+  const isTsx = import.meta.url.endsWith(".ts");
+  const self = fileURLToPath(import.meta.url);
+  const spawnArgs = isTsx
+    ? [path.resolve(self, "../../..", "node_modules/.bin/tsx"), self]
+    : [self];
+  const child = spawn(process.execPath, spawnArgs, {
     detached: true,
     stdio: "ignore",
     env: { ...process.env, CYPHERCLAW_DAEMON_CHILD: "1" },

@@ -19,6 +19,7 @@
 //     The process blocks until you press Ctrl+C.
 
 import { spawn } from "node:child_process";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
 import { GATEWAY_HOST, GATEWAY_PORT } from "../../gateway/server.js";
@@ -79,9 +80,23 @@ export function registerStartCommand(program: Command): void {
         //                      to a log file in a future improvement).
         // `child.unref()`   — tells Node's event loop not to wait for the child
         //                      before allowing this process to exit normally.
-        const daemonEntry = fileURLToPath(new URL("../../gateway/daemon.js", import.meta.url));
+        const isTsx = import.meta.url.endsWith(".ts");
+        const daemonEntry = fileURLToPath(
+          new URL(
+            isTsx ? "../../gateway/daemon.ts" : "../../gateway/daemon.js",
+            import.meta.url,
+          ),
+        );
+        const spawnArgs = isTsx
+          ? [
+              path.resolve(fileURLToPath(new URL("../../../", import.meta.url)), "node_modules/.bin/tsx"),
+              daemonEntry,
+              "--port",
+              String(port),
+            ]
+          : [daemonEntry, "--port", String(port)];
 
-        const child = spawn(process.execPath, [daemonEntry, "--port", String(port)], {
+        const child = spawn(process.execPath, spawnArgs, {
           detached: true,
           stdio: "ignore",
           env: { ...process.env, CYPHERCLAW_DAEMON_CHILD: "1" },
