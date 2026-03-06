@@ -135,16 +135,17 @@ export function registerChatCommand(program: Command): void {
       // doesn't make API calls so tools would never be triggered anyway.
       let agentTools;
       if (opts.tools && agentProvider) {
-        const { defaultTools } = await import("../../tools/index.js");
+        const { createSessionTools } = await import("../../tools/index.js");
+        const tools = createSessionTools(sessionName);
 
         // If --tool-confirm is active, wrap every tool so it asks y/n before
         // executing. The shared readline instance is passed so confirmation
         // prompts don't conflict with the main chat readline.
         if (opts.toolConfirm && sharedRl) {
           const { wrapWithConfirm } = await import("../../tools/utils/confirm.js");
-          agentTools = wrapWithConfirm(defaultTools, sharedRl);
+          agentTools = wrapWithConfirm(tools, sharedRl);
         } else {
-          agentTools = defaultTools;
+          agentTools = tools;
         }
       }
 

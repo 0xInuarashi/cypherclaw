@@ -15,47 +15,54 @@ import path from "node:path";
 import type { ToolDefinition } from "./types/types.js";
 import { resolveMemoryDir } from "./memory-list.js";
 
-export const appendMemoryTool: ToolDefinition = {
-  name: "append_memory",
-  description:
-    "Append content to a file in the agent memory store (.cypherclaw/memory/) " +
-    "without overwriting existing content. Creates the file if it doesn't exist. " +
-    "Use this for incremental updates. Use write_memory to fully replace a file.",
+export function createAppendMemoryTool(sessionId?: string): ToolDefinition {
+  return {
+    name: "append_memory",
+    description:
+      "Append content to a file in the agent memory store (.cypherclaw/memory/) " +
+      "without overwriting existing content. Creates the file if it doesn't exist. " +
+      "Use this for incremental updates. Use write_memory to fully replace a file.",
 
-  parameters: {
-    type: "object",
-    properties: {
-      file: {
-        type: "string",
-        description: "File name to append to (e.g. \"notes.md\").",
+    parameters: {
+      type: "object",
+      properties: {
+        file: {
+          type: "string",
+          description: "File name to append to (e.g. \"notes.md\").",
+        },
+        content: {
+          type: "string",
+          description: "The content to append at the end of the file.",
+        },
       },
-      content: {
-        type: "string",
-        description: "The content to append at the end of the file.",
-      },
+      required: ["file", "content"],
     },
-    required: ["file", "content"],
-  },
 
-  async execute(args): Promise<string> {
-    const memoryDir = resolveMemoryDir();
-    const file = args["file"] as string;
-    const content = args["content"] as string;
-    const filePath = path.resolve(memoryDir, file);
+    async execute(args): Promise<string> {
+      const memoryDir = resolveMemoryDir();
+      const file = args["file"] as string;
+      const content = args["content"] as string;
+      const filePath = path.resolve(memoryDir, file);
 
-    if (!filePath.startsWith(memoryDir + path.sep) && filePath !== memoryDir) {
-      return `Error: "${file}" resolves outside the memory directory.`;
-    }
+      if (!filePath.startsWith(memoryDir + path.sep) && filePath !== memoryDir) {
+        return `Error: "${file}" resolves outside the memory directory.`;
+      }
 
-    process.stderr.write(`\x1b[33m[append_memory]\x1b[0m ${filePath}\n`);
+      process.stderr.write(`\x1b[33m[append_memory]\x1b[0m ${filePath}\n`);
 
-    try {
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.appendFile(filePath, content, "utf-8");
-      return `Appended ${content.length} characters to memory file: ${file}`;
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      return `Error appending to memory file: ${error.message ?? String(err)}`;
-    }
-  },
-};
+      const stamp = sessionId ? `[session:${sessionId}]\n` : "";
+      const finalContent = stamp + content;
+
+      try {
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.appendFile(filePath, finalContent, "utf-8");
+        return `Appended ${finalContent.length} characters to memory file: ${file}`;
+      } catch (err: unknown) {
+        const error = err as { message?: string };
+        return `Error appending to memory file: ${error.message ?? String(err)}`;
+      }
+    },
+  };
+}
+
+export const appendMemoryTool: ToolDefinition = createAppendMemoryTool();

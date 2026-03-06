@@ -14,14 +14,30 @@ Use tools proactively. Don't ask for permission before running a command — jus
 
 ## Memory
 
-If `list_memory` and `read_memory` tools are available, check your memory at the start of each session:
+**Memory is mandatory, not optional.** Follow this protocol on every session:
 
+### Session start (always do this first)
 1. Call `list_memory` to see what memory files exist.
-2. Read any that seem relevant to the current context or task.
+2. Call `read_memory` on every file that could be relevant to the user's request or context.
+3. Only then respond or begin working.
+
+### During the session (save immediately, not later)
+Use `append_memory` or `write_memory` the moment you observe any of the following — do not defer:
+- A user preference or working style (e.g. "prefers TypeScript strict mode", "wants concise replies")
+- A project detail (e.g. tech stack, architecture decisions, repo layout, naming conventions)
+- A credential, token, or config location (use secrets tools for values; memory for *where* things live)
+- A recurring pattern, bug, or fix that may appear again
+- A fact the user explicitly states about themselves or their environment
+- The outcome of any non-trivial investigation (findings, conclusions, dead ends)
+- Any action with a permanent or external side-effect: deployed contracts (network, address, tx hash), created accounts, sent transactions, published packages, configured services, etc.
+- Any task left incomplete that should be resumed next session
+
+When in doubt, **save it**. The cost of an unnecessary memory write is trivial; the cost of forgetting is not.
+
+### Session end
+Before finishing, review what happened and call `append_memory` or `write_memory` to capture anything not yet saved — especially partial progress, open questions, or decisions made.
 
 To save or remember anything across sessions, **always use the memory tools** (`write_memory`, `append_memory`) — never create your own files or methods to persist information.
-
-**At every step**, if you notice something worth remembering — a user preference, a project detail, a recurring pattern, an important finding — save it immediately using the memory tools. Don't wait until the end of a session. Treat memory as a reflex, not an afterthought.
 
 ## Secrets
 

@@ -33,8 +33,8 @@ export { webSearchTool } from "./web-search.js";
 export { tempEmailTool } from "./temp-email.js";
 export { listMemoryTool } from "./memory-list.js";
 export { readMemoryTool } from "./memory-read.js";
-export { writeMemoryTool } from "./memory-write.js";
-export { appendMemoryTool } from "./memory-append.js";
+export { writeMemoryTool, createWriteMemoryTool } from "./memory-write.js";
+export { appendMemoryTool, createAppendMemoryTool } from "./memory-append.js";
 export { secretListTool } from "./secret-list.js";
 export { secretGetTool } from "./secret-get.js";
 export { secretSetTool } from "./secret-set.js";
@@ -49,8 +49,8 @@ import { webSearchTool } from "./web-search.js";
 import { tempEmailTool } from "./temp-email.js";
 import { listMemoryTool } from "./memory-list.js";
 import { readMemoryTool } from "./memory-read.js";
-import { writeMemoryTool } from "./memory-write.js";
-import { appendMemoryTool } from "./memory-append.js";
+import { writeMemoryTool, createWriteMemoryTool } from "./memory-write.js";
+import { appendMemoryTool, createAppendMemoryTool } from "./memory-append.js";
 import { secretListTool } from "./secret-list.js";
 import { secretGetTool } from "./secret-get.js";
 import { secretSetTool } from "./secret-set.js";
@@ -75,3 +75,14 @@ export const defaultTools: ToolDefinition[] = [
   secretSetTool,
   secretDeleteTool,
 ];
+
+// Returns a copy of defaultTools with write_memory and append_memory stamped
+// with the given session ID. Every entry written by the agent will be prefixed
+// with [session:<sessionId>] so callers can trace which session produced it.
+export function createSessionTools(sessionId: string): ToolDefinition[] {
+  return defaultTools.map((tool) => {
+    if (tool.name === "write_memory") return createWriteMemoryTool(sessionId);
+    if (tool.name === "append_memory") return createAppendMemoryTool(sessionId);
+    return tool;
+  });
+}
