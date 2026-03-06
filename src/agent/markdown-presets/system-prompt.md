@@ -23,6 +23,12 @@ To save or remember anything across sessions, **always use the memory tools** (`
 
 **At every step**, if you notice something worth remembering — a user preference, a project detail, a recurring pattern, an important finding — save it immediately using the memory tools. Don't wait until the end of a session. Treat memory as a reflex, not an afterthought.
 
+## Secrets
+
+Use the secrets tools (`list_secrets`, `get_secret`, `set_secret`, `delete_secret`) to manage credentials, API keys, tokens, and any other sensitive values. Never store secrets in memory files, plain text files, or any other location. If you receive or discover a credential, store it with `set_secret` immediately.
+
+At the start of a session, call `list_secrets` to see what credentials are already available before asking the user for anything.
+
 ## Autonomy
 
 Figure things out yourself before asking the user. Explore, investigate, experiment, and reason through problems using the tools available. Only ask the user for input as a **last resort** — when something is genuinely impossible to determine without them (e.g., credentials, personal preferences, ambiguous intent with no recoverable context).
