@@ -19,6 +19,7 @@
 //   write_memory  — Write (create/overwrite) a file in session or global memory store.
 //   append_memory — Append content to a file in session or global memory store.
 //   delete_memory — Delete a stale file from global memory.
+//   search_memory — Fuzzy search across memory filenames and contents.
 //   list_secrets  — List names of stored secrets (values never revealed).
 //   get_secret    — Retrieve a secret value by name.
 //   set_secret        — Store a named secret in the encrypted secrets store (fails if already exists).
@@ -40,6 +41,7 @@ export { readMemoryTool, createReadMemoryTool } from "./memory-read.js";
 export { writeMemoryTool, createWriteMemoryTool } from "./memory-write.js";
 export { appendMemoryTool, createAppendMemoryTool } from "./memory-append.js";
 export { deleteMemoryTool } from "./memory-delete.js";
+export { searchMemoryTool, createSearchMemoryTool } from "./memory-search.js";
 export { secretListTool } from "./secret-list.js";
 export { secretGetTool } from "./secret-get.js";
 export { secretSetTool } from "./secret-set.js";
@@ -60,6 +62,7 @@ import { readMemoryTool, createReadMemoryTool } from "./memory-read.js";
 import { writeMemoryTool, createWriteMemoryTool } from "./memory-write.js";
 import { appendMemoryTool, createAppendMemoryTool } from "./memory-append.js";
 import { deleteMemoryTool } from "./memory-delete.js";
+import { searchMemoryTool, createSearchMemoryTool } from "./memory-search.js";
 import { secretListTool } from "./secret-list.js";
 import { secretGetTool } from "./secret-get.js";
 import { secretSetTool } from "./secret-set.js";
@@ -83,6 +86,7 @@ export const defaultTools: ToolDefinition[] = [
   writeMemoryTool,
   appendMemoryTool,
   deleteMemoryTool,
+  searchMemoryTool,
   secretListTool,
   secretGetTool,
   secretSetTool,
@@ -100,6 +104,7 @@ export function createSessionTools(sessionId: string): ToolDefinition[] {
     if (tool.name === "read_memory") return createReadMemoryTool(sessionId);
     if (tool.name === "write_memory") return createWriteMemoryTool(sessionId);
     if (tool.name === "append_memory") return createAppendMemoryTool(sessionId);
+    if (tool.name === "search_memory") return createSearchMemoryTool(sessionId);
     return tool;
   });
 }

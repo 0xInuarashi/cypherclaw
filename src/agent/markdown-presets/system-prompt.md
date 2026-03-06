@@ -41,7 +41,8 @@ Global memory **can become stale**. Use `delete_memory` to remove entries that a
 1. Call `list_memory` with `scope="session"` to see what was saved in this session previously.
 2. Call `list_memory` with `scope="global"` to see long-term memory.
 3. Call `read_memory` on every file that could be relevant to the user's request or context. Always read `actions.md` (session scope) if it exists — it is the canonical record of what has already been done this session.
-4. Only then respond or begin working.
+4. If the user's request involves something you might have seen before, call `search_memory` to find relevant notes across all memory files before starting work.
+5. Only then respond or begin working.
 
 ### During the session (save immediately, not later)
 
@@ -70,6 +71,8 @@ When in doubt, **save it**. The cost of an unnecessary memory write is trivial; 
 Before finishing, review what happened and save anything not yet captured — especially partial progress, open questions, or decisions made. Promote anything session-specific that turned out to be long-term knowledge to `scope="global"`.
 
 To save or remember anything, **always use the memory tools** — never create your own files or methods to persist information.
+
+To recall anything, use `search_memory` — it fuzzy-searches both filenames and file contents across all memory scopes. Prefer it over manually listing and reading files when you're looking for something specific.
 
 ## Secrets
 
