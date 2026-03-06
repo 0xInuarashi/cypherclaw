@@ -17,7 +17,16 @@
     "chat-debug": "npx tsx src/entry.ts chat --debug",
     "chat-debug-raw": "npx tsx src/entry.ts chat --debug --raw",
     "chat-debug-raw-tools": "npx tsx src/entry.ts chat --debug --raw --tool-confirm",
-    "chat-debug-tools": "npx tsx src/entry.ts chat --debug --tool-confirm"
+    "chat-debug-tools": "npx tsx src/entry.ts chat --debug --tool-confirm",
+    "gateway": "npx tsx src/entry.ts start --foreground",
+    "gateway:dev": "npx tsx --watch src/entry.ts start --foreground",
+    "gateway:daemon": "npx tsx src/gateway/daemon.ts",
+    "gateway:start": "npx tsx src/entry.ts start",
+    "gateway:stop": "npx tsx src/entry.ts stop",
+    "gateway:status": "npx tsx src/entry.ts status",
+    "token:create": "npx tsx src/entry.ts token create",
+    "token:list": "npx tsx src/entry.ts token list",
+    "token:revoke": "npx tsx src/entry.ts token revoke"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

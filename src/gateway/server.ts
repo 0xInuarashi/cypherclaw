@@ -57,6 +57,34 @@ type ServerOpts = {
   getAgent?: (sessionId: string) => Promise<AgentFn>;
 };
 
+// ── Per-session turn queue ────────────────────────────────────────────────────
+//
+// Serialises concurrent /chat requests that share the same sessionId so that
+// history is never read/written by two turns at the same time.
+//
+// Because Node.js is single-threaded, the synchronous get→set pair is atomic:
+// no other request can interleave between reading `prev` and writing the new
+// entry, even though the function is async.
+
+const chatQueues = new Map<string, Promise<void>>();
+
+async function withSessionQueue<T>(sessionId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = chatQueues.get(sessionId) ?? Promise.resolve();
+
+  let done!: () => void;
+  const slot = new Promise<void>((r) => { done = r; });
+  const entry = prev.then(() => slot);
+  chatQueues.set(sessionId, entry);
+
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    done();
+    if (chatQueues.get(sessionId) === entry) chatQueues.delete(sessionId);
+  }
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -109,8 +137,10 @@ async function handleChat(
   const { message, sessionId } = body as { message: string; sessionId?: string };
   const sid = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : randomUUID();
 
-  const agent = await opts.getAgent(sid);
-  const reply = await agent(message);
+  const reply = await withSessionQueue(sid, async () => {
+    const agent = await opts.getAgent(sid);
+    return agent(message);
+  });
 
   sendJson(res, 200, { reply, sessionId: sid });
 }
