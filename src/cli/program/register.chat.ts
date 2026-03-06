@@ -169,7 +169,8 @@ export function registerChatCommand(program: Command): void {
 
       const { DEFAULT_SYSTEM_PROMPT } = await import("../../agent/system-prompt.js");
 
-      const resolvedSystemPrompt = (opts.system ?? process.env.CYPHERCLAW_SYSTEM_PROMPT ?? DEFAULT_SYSTEM_PROMPT)
+      const userAddition = opts.system ?? process.env.CYPHERCLAW_SYSTEM_PROMPT;
+      const resolvedSystemPrompt = (userAddition ? `${DEFAULT_SYSTEM_PROMPT}\n\n${userAddition}` : DEFAULT_SYSTEM_PROMPT)
         .replace(/\{\{SESSION_ID\}\}/g, sessionName);
 
       const agent = createAgent({

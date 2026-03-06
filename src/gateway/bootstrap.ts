@@ -24,8 +24,10 @@ export async function buildAgentFactory(): Promise<AgentFactory | undefined> {
 
     const config = loadConfig();
     const provider = createProvider(config);
-    const systemPromptTemplate =
-      process.env.CYPHERCLAW_SYSTEM_PROMPT ?? DEFAULT_SYSTEM_PROMPT;
+    const userAddition = process.env.CYPHERCLAW_SYSTEM_PROMPT;
+    const systemPromptTemplate = userAddition
+      ? `${DEFAULT_SYSTEM_PROMPT}\n\n${userAddition}`
+      : DEFAULT_SYSTEM_PROMPT;
 
     const agentSessions = new Map<string, AgentFn>();
 
