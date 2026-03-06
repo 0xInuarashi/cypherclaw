@@ -1,464 +1,239 @@
 // tools/web-fetch.ts
 // ------------------
-// Fetches a public HTTP(S) URL through a Browserbase-hosted browser session.
-// This is intentionally browser-based rather than raw HTTP because many sites
-// now block simple scripted fetches while still allowing real browsers.
+// Fetches a public URL and returns its main content as clean, readable text.
+//
+// Why no browser (Playwright/Puppeteer)?
+//   web_fetch is stateless and read-only. A real browser adds 2–5 s of cold-
+//   start overhead, requires cloud infra, and costs money per session. Native
+//   fetch + Readability covers the vast majority of content sites. The fallback
+//   tiers handle the rest — including JS-heavy SPAs.
+//
+// Three-tier pipeline (each tier tried only if the previous one fails):
+//
+//   Tier 1 — Native fetch + Readability
+//     Standard HTTP request with a realistic User-Agent. The response HTML is
+//     parsed by Mozilla Readability to extract only the main article/content
+//     area, stripping nav menus, footers, ads, and other boilerplate.
+//     Fails on: bot-detection blocks (403/429), JS-only SPAs, network errors.
+//
+//   Tier 2 — Jina Reader  (r.jina.ai)
+//     Free service, zero config, no API key required. Internally runs a
+//     headless browser, so it handles JS-rendered pages. Returns clean
+//     markdown directly — no post-processing needed. Set JINA_API_KEY in
+//     the environment for a higher rate limit.
+//     Fails on: Jina outages, rate limits without a key.
+//
+//   Tier 3 — Firecrawl  (api.firecrawl.dev)
+//     Paid service, highest quality, supports caching. Only attempted when
+//     FIRECRAWL_API_KEY is set in the environment.
+//
+//   All fail → structured error returned so the model can decide next steps.
 
-import dns from "node:dns/promises";
-import net from "node:net";
-import type { Response as PlaywrightResponse } from "playwright-core";
 import type { ToolDefinition } from "./types.js";
+import { validatePublicUrl, cleanText, truncateOutput } from "./utils/browser-utils.js";
+import { extractReadableContent } from "./utils/readability.js";
 
-const BROWSERBASE_API_URL = "https://api.browserbase.com/v1/sessions";
-const SESSION_TIMEOUT_SECONDS = 180;
-const CONNECT_TIMEOUT_MS = 30_000;
-const NAVIGATION_TIMEOUT_MS = 45_000;
-const LOAD_SETTLE_TIMEOUT_MS = 5_000;
-const INITIAL_SETTLE_MS = 2_000;
-const CHALLENGE_SETTLE_MS = 8_000;
-const MAX_OUTPUT_CHARS = 16_000;
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const BOT_BLOCK_MARKERS = [
-  "access denied",
-  "are you human",
-  "bot detection",
-  "captcha",
-  "cf-challenge",
-  "checking your browser",
-  "ddos protection",
-  "enable javascript",
-  "just a moment",
-  "please verify",
-  "press and hold",
-  "security check",
-  "verify you are human",
-];
+// Per-tier network timeouts. Jina and Firecrawl are slower because they spin
+// up headless browsers or hit external APIs.
+const DIRECT_TIMEOUT_MS = 15_000;
+const JINA_TIMEOUT_MS   = 25_000;
+const FIRECRAWL_TIMEOUT_MS = 30_000;
 
-const BLOCKED_HOSTNAMES = new Set([
-  "localhost",
-  "0.0.0.0",
-  "127.0.0.1",
-  "::",
-  "::1",
-  "host.docker.internal",
-  "metadata.google.internal",
-]);
+// Maximum characters of extracted text returned to the model.
+// Readability dramatically reduces page size before this cap is applied,
+// so in practice most articles fit well under this limit.
+const MAX_OUTPUT_CHARS = 200_000;
 
-type BrowserbaseSession = {
-  id: string;
-  projectId: string;
-  connectUrl: string;
-};
+// Realistic desktop browser UA. Many sites return bot-walls to obvious
+// scripted user agents but serve content normally to this string.
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-type BrowserbaseConfig = {
-  apiKey: string;
-  projectId: string;
-  useProxy: boolean;
-  useAdvancedStealth: boolean;
-};
+const JINA_BASE_URL     = "https://r.jina.ai";
+const FIRECRAWL_API_URL = "https://api.firecrawl.dev/v1/scrape";
 
-type PageSnapshot = {
-  contentType: string;
-  finalUrl: string;
-  status: number | null;
-  text: string;
-  title: string;
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function isPrivateIPv4(address: string): boolean {
-  const octets = address.split(".").map((part) => Number(part));
-  if (octets.length !== 4 || octets.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
-    return false;
-  }
-
-  const [a, b] = octets;
-  if (a === 0 || a === 10 || a === 127) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 198 && (b === 18 || b === 19)) return true;
-
-  return false;
+// HTTP status codes that indicate the server is actively blocking us.
+// Receiving one of these means retrying the same request won't help — we
+// should escalate to the next tier instead.
+function isBlockingStatus(status: number): boolean {
+  return (
+    status === 401 || // Unauthorised
+    status === 403 || // Forbidden (bot wall)
+    status === 407 || // Proxy auth required
+    status === 429 || // Rate limited
+    status >= 500     // Server-side error
+  );
 }
 
-function isPrivateIPv6(address: string): boolean {
-  const normalized = address.toLowerCase();
-
-  if (normalized === "::" || normalized === "::1") {
-    return true;
-  }
-
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) {
-    return true;
-  }
-
-  if (
-    normalized.startsWith("fe8") ||
-    normalized.startsWith("fe9") ||
-    normalized.startsWith("fea") ||
-    normalized.startsWith("feb")
-  ) {
-    return true;
-  }
-
-  if (normalized.startsWith("::ffff:")) {
-    const mapped = normalized.slice("::ffff:".length);
-    return net.isIPv4(mapped) ? isPrivateIPv4(mapped) : false;
-  }
-
-  return false;
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
-function isPrivateIp(address: string): boolean {
-  if (net.isIPv4(address)) {
-    return isPrivateIPv4(address);
-  }
-  if (net.isIPv6(address)) {
-    return isPrivateIPv6(address);
-  }
-  return false;
-}
+// ── Tier 1: native fetch + Readability ───────────────────────────────────────
 
-async function validatePublicUrl(input: string): Promise<URL> {
-  let url: URL;
+async function fetchDirect(
+  url: string,
+): Promise<{ title?: string; text: string; finalUrl: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS);
 
   try {
-    url = new URL(input);
-  } catch {
-    throw new Error(`Invalid URL: ${input}`);
-  }
-
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Unsupported URL protocol: ${url.protocol}. Only http:// and https:// are allowed.`);
-  }
-
-  const hostname = url.hostname.toLowerCase();
-  if (
-    BLOCKED_HOSTNAMES.has(hostname) ||
-    hostname.endsWith(".local") ||
-    hostname.endsWith(".internal")
-  ) {
-    throw new Error(`Refusing to fetch a local or internal host: ${hostname}`);
-  }
-
-  if (net.isIP(hostname)) {
-    if (isPrivateIp(hostname)) {
-      throw new Error(`Refusing to fetch a private or loopback address: ${hostname}`);
-    }
-    return url;
-  }
-
-  let records: Array<{ address: string }>;
-  try {
-    records = await dns.lookup(hostname, { all: true, verbatim: true });
-  } catch (err: unknown) {
-    const error = err as { message?: string };
-    throw new Error(`Could not resolve hostname ${hostname}: ${error.message ?? String(err)}`);
-  }
-
-  if (records.some((record) => isPrivateIp(record.address))) {
-    throw new Error(`Refusing to fetch ${hostname} because it resolves to a private or loopback address.`);
-  }
-
-  return url;
-}
-
-function getBrowserbaseConfig(): BrowserbaseConfig {
-  const apiKey = process.env.BROWSERBASE_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("Missing BROWSERBASE_API_KEY. Set it in the environment before using web_fetch.");
-  }
-
-  const projectId = process.env.BROWSERBASE_PROJECT_ID?.trim();
-  if (!projectId) {
-    throw new Error("Missing BROWSERBASE_PROJECT_ID. Set it in the environment before using web_fetch.");
-  }
-
-  const useProxy = process.env.BROWSERBASE_USE_PROXY !== "false";
-  const useAdvancedStealth = process.env.BROWSERBASE_ADVANCED_STEALTH === "true";
-
-  return {
-    apiKey,
-    projectId,
-    useProxy,
-    useAdvancedStealth,
-  };
-}
-
-function cleanText(input: string): string {
-  return input
-    .replace(/\r/g, "")
-    .replace(/\u00a0/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function truncateOutput(text: string): { text: string; omitted: number } {
-  if (text.length <= MAX_OUTPUT_CHARS) {
-    return { text, omitted: 0 };
-  }
-
-  return {
-    text: text.slice(0, MAX_OUTPUT_CHARS),
-    omitted: text.length - MAX_OUTPUT_CHARS,
-  };
-}
-
-function looksLikeBotBlock(title: string, text: string): boolean {
-  const haystack = `${title}\n${text}`.toLowerCase();
-  return BOT_BLOCK_MARKERS.some((marker) => haystack.includes(marker));
-}
-
-async function createBrowserbaseSession(
-  config: BrowserbaseConfig,
-  useProxy: boolean,
-): Promise<BrowserbaseSession> {
-  const browserSettings: Record<string, unknown> = {
-    blockAds: true,
-    solveCaptchas: true,
-    logSession: false,
-    recordSession: false,
-  };
-
-  if (config.useAdvancedStealth) {
-    browserSettings["advancedStealth"] = true;
-    browserSettings["os"] = "windows";
-  }
-
-  const body: Record<string, unknown> = {
-    projectId: config.projectId,
-    timeout: SESSION_TIMEOUT_SECONDS,
-    browserSettings,
-    userMetadata: {
-      source: "cypherclaw.web_fetch",
-    },
-  };
-
-  if (useProxy) {
-    body["proxies"] = true;
-  }
-
-  const res = await fetch(BROWSERBASE_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-BB-API-Key": config.apiKey,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const responseText = await res.text();
-    throw new Error(`Browserbase session creation failed (${res.status}): ${responseText}`);
-  }
-
-  const session = (await res.json()) as Partial<BrowserbaseSession>;
-
-  if (!session.id || !session.projectId || !session.connectUrl) {
-    throw new Error("Browserbase session creation returned an incomplete response.");
-  }
-
-  return {
-    id: session.id,
-    projectId: session.projectId,
-    connectUrl: session.connectUrl,
-  };
-}
-
-async function createBrowserbaseSessionWithFallback(config: BrowserbaseConfig): Promise<{
-  proxyEnabled: boolean;
-  session: BrowserbaseSession;
-}> {
-  try {
-    return {
-      proxyEnabled: config.useProxy,
-      session: await createBrowserbaseSession(config, config.useProxy),
-    };
-  } catch (err: unknown) {
-    if (!config.useProxy) {
-      throw err;
-    }
-
-    const proxyError = err as { message?: string };
-
-    try {
-      return {
-        proxyEnabled: false,
-        session: await createBrowserbaseSession(config, false),
-      };
-    } catch {
-      throw new Error(
-        `Browserbase session creation failed with proxies enabled: ${proxyError.message ?? String(err)}`,
-      );
-    }
-  }
-}
-
-async function releaseBrowserbaseSession(apiKey: string, session: BrowserbaseSession): Promise<void> {
-  const res = await fetch(`${BROWSERBASE_API_URL}/${session.id}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-BB-API-Key": apiKey,
-    },
-    body: JSON.stringify({
-      projectId: session.projectId,
-      status: "REQUEST_RELEASE",
-    }),
-  });
-
-  if (!res.ok) {
-    const responseText = await res.text();
-    throw new Error(`Browserbase session release failed (${res.status}): ${responseText}`);
-  }
-}
-
-async function settlePage(page: import("playwright-core").Page): Promise<void> {
-  await page.waitForLoadState("load", { timeout: LOAD_SETTLE_TIMEOUT_MS }).catch(() => {});
-  await page.waitForLoadState("networkidle", { timeout: LOAD_SETTLE_TIMEOUT_MS }).catch(() => {});
-  await page.waitForTimeout(INITIAL_SETTLE_MS);
-}
-
-async function extractPageText(page: import("playwright-core").Page): Promise<string> {
-  return page.evaluate(() => {
-    const primary = document.querySelector("main, article, [role='main']");
-    const candidates = [
-      primary instanceof HTMLElement ? primary.innerText : "",
-      document.body?.innerText ?? "",
-      document.documentElement?.innerText ?? "",
-    ];
-
-    return candidates.find((candidate) => candidate.trim().length > 0) ?? "";
-  });
-}
-
-async function collectSnapshot(
-  page: import("playwright-core").Page,
-  response: PlaywrightResponse | null,
-): Promise<PageSnapshot> {
-  const title = cleanText(await page.title().catch(() => ""));
-  const text = cleanText(await extractPageText(page));
-  const finalUrl = page.url();
-  const contentType = response?.headers()["content-type"] ?? "(unknown)";
-
-  return {
-    contentType,
-    finalUrl,
-    status: response?.status() ?? null,
-    text: text || "(empty page)",
-    title: title || "(untitled)",
-  };
-}
-
-async function fetchWithBrowserbase(url: string, config: BrowserbaseConfig): Promise<string> {
-  let playwright: typeof import("playwright-core");
-  try {
-    playwright = await import("playwright-core");
-  } catch {
-    throw new Error(
-      "Missing dependency 'playwright-core'. Install project dependencies before using web_fetch.",
-    );
-  }
-
-  const { chromium } = playwright;
-
-  let session: BrowserbaseSession | null = null;
-  let browser: import("playwright-core").Browser | null = null;
-  let proxyEnabled = false;
-
-  try {
-    const created = await createBrowserbaseSessionWithFallback(config);
-    session = created.session;
-    proxyEnabled = created.proxyEnabled;
-
-    browser = await chromium.connectOverCDP(session.connectUrl, {
-      timeout: CONNECT_TIMEOUT_MS,
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      signal: controller.signal,
+      redirect: "follow",
     });
 
-    const defaultContext = browser.contexts()[0];
-    if (!defaultContext) {
-      throw new Error("Browserbase returned no default browser context.");
+    if (isBlockingStatus(res.status)) {
+      throw new Error(`HTTP ${res.status}`);
     }
 
-    const page = defaultContext.pages()[0] ?? (await defaultContext.newPage());
+    const contentType = res.headers.get("content-type") ?? "";
+    const finalUrl = res.url || url;
+    const body = await res.text();
 
-    page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
-    page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
-
-    let response: PlaywrightResponse | null = null;
-    let navigationWarning: string | undefined;
-
-    try {
-      response = await page.goto(url, {
-        timeout: NAVIGATION_TIMEOUT_MS,
-        waitUntil: "domcontentloaded",
-      });
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      navigationWarning = error.message ?? String(err);
+    // Non-HTML responses (JSON, plain text, XML) are returned as-is after
+    // whitespace normalisation — no point running Readability on them.
+    if (!contentType.includes("text/html")) {
+      return { text: cleanText(body), finalUrl };
     }
 
-    await settlePage(page);
+    const { title, text } = extractReadableContent(body, finalUrl);
 
-    let snapshot = await collectSnapshot(page, response);
-    let botBlocked = looksLikeBotBlock(snapshot.title, snapshot.text);
-
-    if (botBlocked) {
-      await page.waitForTimeout(CHALLENGE_SETTLE_MS);
-      snapshot = await collectSnapshot(page, response);
-      botBlocked = looksLikeBotBlock(snapshot.title, snapshot.text);
+    if (!text.trim()) {
+      throw new Error("no content extracted — page may be JS-rendered");
     }
 
-    const truncated = truncateOutput(snapshot.text);
-    const lines = [
-      `Requested URL: ${url}`,
-      `Final URL: ${snapshot.finalUrl}`,
-      `Title: ${snapshot.title}`,
-      `Status: ${snapshot.status ?? "(unknown)"}`,
-      `Content-Type: ${snapshot.contentType}`,
-      `Browserbase session: ${session.id}`,
-      `Browserbase proxy: ${proxyEnabled ? "enabled" : "disabled"}`,
-      `Bot protection detected: ${botBlocked ? "likely" : "not detected"}`,
-    ];
-
-    if (navigationWarning) {
-      lines.push(`Navigation warning: ${navigationWarning}`);
-    }
-
-    lines.push("");
-    lines.push(truncated.text);
-
-    if (truncated.omitted > 0) {
-      lines.push("");
-      lines.push(`[output truncated — ${truncated.omitted} chars omitted]`);
-    }
-
-    return lines.join("\n");
+    return { title, text, finalUrl };
   } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
-    } else if (session) {
-      await releaseBrowserbaseSession(config.apiKey, session).catch(() => {});
-    }
+    clearTimeout(timer);
   }
 }
+
+// ── Tier 2: Jina Reader ───────────────────────────────────────────────────────
+
+async function fetchViaJina(
+  url: string,
+): Promise<{ text: string; finalUrl: string }> {
+  // Jina's Reader API is dead simple: prefix any URL with r.jina.ai/
+  const jinaUrl = `${JINA_BASE_URL}/${url}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+
+  const headers: Record<string, string> = {
+    Accept: "text/plain, text/markdown",
+  };
+
+  // Optional API key for higher rate limits (free without key, just throttled).
+  const apiKey = process.env.JINA_API_KEY?.trim();
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  try {
+    const res = await fetch(jinaUrl, { headers, signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return { text: cleanText(await res.text()), finalUrl: url };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ── Tier 3: Firecrawl ─────────────────────────────────────────────────────────
+
+async function fetchViaFirecrawl(
+  url: string,
+  apiKey: string,
+): Promise<{ title?: string; text: string; finalUrl: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FIRECRAWL_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(FIRECRAWL_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, formats: ["markdown"] }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = (await res.json()) as {
+      success?: boolean;
+      data?: {
+        markdown?: string;
+        metadata?: { title?: string; sourceURL?: string };
+      };
+    };
+
+    if (!data.success || !data.data?.markdown) {
+      throw new Error("empty response");
+    }
+
+    return {
+      title: data.data.metadata?.title,
+      text: cleanText(data.data.markdown),
+      finalUrl: data.data.metadata?.sourceURL ?? url,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ── Output formatting ─────────────────────────────────────────────────────────
+
+function formatResult(params: {
+  url: string;
+  title?: string;
+  extractor: string;
+  text: string;
+  omitted: number;
+}): string {
+  const lines: string[] = [
+    `URL: ${params.url}`,
+    ...(params.title ? [`Title: ${params.title}`] : []),
+    `Extractor: ${params.extractor}`,
+    "",
+    params.text,
+  ];
+
+  if (params.omitted > 0) {
+    lines.push(`\n[${params.omitted} characters omitted — content was truncated at ${MAX_OUTPUT_CHARS} chars]`);
+  }
+
+  return lines.join("\n");
+}
+
+// ── Tool export ───────────────────────────────────────────────────────────────
 
 export const webFetchTool: ToolDefinition = {
   name: "web_fetch",
+
   description:
-    "Fetch a public http:// or https:// URL using a Browserbase-hosted browser session and return the rendered page text. " +
-    "Use this when normal scripted fetches are likely to be blocked.",
+    "Fetch a public web page and return its main content as clean, readable text. " +
+    "Automatically strips navigation, ads, headers, and footers — the model receives " +
+    "only the article or content body. " +
+    "Falls back to Jina Reader (and optionally Firecrawl) if the direct request is blocked " +
+    "or if the page requires JavaScript to render.",
 
   parameters: {
     type: "object",
     properties: {
       url: {
         type: "string",
-        description: "The public http:// or https:// URL to fetch.",
+        description: "The full HTTP or HTTPS URL to fetch.",
       },
     },
     required: ["url"],
@@ -466,20 +241,52 @@ export const webFetchTool: ToolDefinition = {
 
   async execute(args): Promise<string> {
     const rawUrl = String(args["url"] ?? "").trim();
-
-    if (!rawUrl) {
-      return "Error: missing required argument 'url'.";
-    }
-
     process.stderr.write(`\x1b[33m[web_fetch]\x1b[0m ${rawUrl}\n`);
 
+    // SSRF guard — validates protocol, blocks private IPs and internal hosts.
     try {
-      const safeUrl = await validatePublicUrl(rawUrl);
-      const config = getBrowserbaseConfig();
-      return await fetchWithBrowserbase(safeUrl.toString(), config);
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      return `Error fetching URL: ${error.message ?? String(err)}`;
+      await validatePublicUrl(rawUrl, "fetch");
+    } catch (err) {
+      return `Error: ${errMessage(err)}`;
     }
+
+    const errors: string[] = [];
+
+    // Tier 1: native fetch + Readability
+    try {
+      const { title, text, finalUrl } = await fetchDirect(rawUrl);
+      const { text: out, omitted } = truncateOutput(text, MAX_OUTPUT_CHARS);
+      return formatResult({ url: finalUrl, title, extractor: "direct", text: out, omitted });
+    } catch (err) {
+      errors.push(`direct: ${errMessage(err)}`);
+    }
+
+    // Tier 2: Jina Reader
+    try {
+      const { text, finalUrl } = await fetchViaJina(rawUrl);
+      const { text: out, omitted } = truncateOutput(text, MAX_OUTPUT_CHARS);
+      return formatResult({ url: finalUrl, extractor: "jina", text: out, omitted });
+    } catch (err) {
+      errors.push(`jina: ${errMessage(err)}`);
+    }
+
+    // Tier 3: Firecrawl (only if API key is configured)
+    const firecrawlKey = process.env.FIRECRAWL_API_KEY?.trim();
+    if (firecrawlKey) {
+      try {
+        const { title, text, finalUrl } = await fetchViaFirecrawl(rawUrl, firecrawlKey);
+        const { text: out, omitted } = truncateOutput(text, MAX_OUTPUT_CHARS);
+        return formatResult({ url: finalUrl, title, extractor: "firecrawl", text: out, omitted });
+      } catch (err) {
+        errors.push(`firecrawl: ${errMessage(err)}`);
+      }
+    }
+
+    // All tiers failed — tell the model what happened so it can decide.
+    return [
+      `Failed to fetch: ${rawUrl}`,
+      `Attempts: ${errors.join(" | ")}`,
+      "You may try a different URL, ask the user to check their network, or proceed without this content.",
+    ].join("\n");
   },
 };
