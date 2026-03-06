@@ -22,6 +22,8 @@
 //   get_secret    — Retrieve a secret value by name.
 //   set_secret    — Store a named secret in the encrypted secrets store.
 //   delete_secret — Remove a named secret from the secrets store.
+//   list_sessions — List all saved sessions with message counts and timestamps.
+//   read_session  — Read the full conversation history of a past session.
 
 export type { ToolDefinition } from "./types/types.js";
 export { bashTool } from "./bash.js";
@@ -39,6 +41,8 @@ export { secretListTool } from "./secret-list.js";
 export { secretGetTool } from "./secret-get.js";
 export { secretSetTool } from "./secret-set.js";
 export { secretDeleteTool } from "./secret-delete.js";
+export { sessionListTool } from "./session-list.js";
+export { sessionReadTool } from "./session-read.js";
 
 import { bashTool } from "./bash.js";
 import { readFileTool } from "./read-file.js";
@@ -55,6 +59,8 @@ import { secretListTool } from "./secret-list.js";
 import { secretGetTool } from "./secret-get.js";
 import { secretSetTool } from "./secret-set.js";
 import { secretDeleteTool } from "./secret-delete.js";
+import { sessionListTool } from "./session-list.js";
+import { sessionReadTool } from "./session-read.js";
 import type { ToolDefinition } from "./types/types.js";
 
 // The set of tools enabled by default in every chat session.
@@ -74,6 +80,8 @@ export const defaultTools: ToolDefinition[] = [
   secretGetTool,
   secretSetTool,
   secretDeleteTool,
+  sessionListTool,
+  sessionReadTool,
 ];
 
 // Returns a copy of defaultTools with write_memory and append_memory stamped
