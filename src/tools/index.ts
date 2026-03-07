@@ -29,6 +29,9 @@
 //   read_session  — Read the full conversation history of a past session.
 //   list_guides   — List built-in guides (filename + title) to check for relevant setup instructions.
 //   read_guide    — Read the full contents of a built-in guide by filename.
+//   list_skills   — List AgentSkills-format skills (name + description) available in CypherClaw.
+//   search_skill  — Fuzzy search for skills by name.
+//   read_skill    — Read a skill's SKILL.md and manifest of bundled files.
 
 export type { ToolDefinition } from "./types/types.js";
 export { bashTool, createBashTool } from "./bash.js";
@@ -52,6 +55,7 @@ export { secretDeleteTool } from "./secret-delete.js";
 export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
 export { listGuidesTool, readGuideTool } from "./guide-read.js";
+export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 
 import { bashTool, createBashTool } from "./bash.js";
 import { readFileTool } from "./read-file.js";
@@ -74,6 +78,7 @@ import { secretDeleteTool } from "./secret-delete.js";
 import { sessionListTool } from "./session-list.js";
 import { sessionReadTool } from "./session-read.js";
 import { listGuidesTool, readGuideTool } from "./guide-read.js";
+import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 import type { ToolDefinition } from "./types/types.js";
 
 // The set of tools enabled by default in every chat session.
@@ -100,6 +105,9 @@ export const defaultTools: ToolDefinition[] = [
   sessionReadTool,
   listGuidesTool,
   readGuideTool,
+  listSkillsTool,
+  searchSkillTool,
+  readSkillTool,
 ];
 
 // Returns a copy of defaultTools with all memory tools stamped with the given
