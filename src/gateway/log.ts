@@ -10,9 +10,8 @@
 //
 // Log file location: ~/.cypherclaw/gateway/gateway.log
 //
-// This mirrors the convention used by ~/.cypherclaw/tokens/ — both are
-// user-level, machine-global concerns that belong to the daemon rather than
-// to any specific project directory.
+// Stored under the user's home directory alongside all other cypherclaw
+// runtime data, following the standard ~/.<project> convention.
 
 import os from "node:os";
 import path from "node:path";

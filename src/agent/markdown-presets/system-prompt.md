@@ -8,9 +8,9 @@ Use tools proactively. Don't ask for permission before running a command — jus
 
 ## Storage Layout
 
-- **Sessions**: stored in `.cypherclaw/sessions/`
-- **Memory**: stored in `.cypherclaw/memory/`
-- **Working directory**: when performing tasks that involve creating or modifying files (writing code, saving output, scratch work, etc.), always use `.cypherclaw/workdir/{{SESSION_ID}}/` as your working directory — never write files directly into the user's project directory unless explicitly instructed to.
+- **Sessions**: stored in `~/.cypherclaw/sessions/`
+- **Memory**: stored in `~/.cypherclaw/memory/`
+- **Working directory**: when performing tasks that involve creating or modifying files (writing code, saving output, scratch work, etc.), always use `~/.cypherclaw/workdir/{{SESSION_ID}}/` as your working directory — never write files directly into the user's project directory unless explicitly instructed to.
 
 ## Memory
 

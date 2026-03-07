@@ -3,12 +3,12 @@
 // Shared utilities for the secrets tool family.
 //
 // Key management:
-//   - The encryption key lives at .cypherclaw/secrets.key (32 raw bytes, hex-encoded).
+//   - The encryption key lives at ~/.cypherclaw/secrets.key (32 raw bytes, hex-encoded).
 //   - If the file doesn't exist on first use, a new key is generated automatically
 //     and written with mode 0o600. No user interaction required.
 //
 // Storage:
-//   - Secrets are kept in .cypherclaw/secrets/store.enc as an AES-256-GCM
+//   - Secrets are kept in ~/.cypherclaw/secrets/store.enc as an AES-256-GCM
 //     encrypted JSON blob: { iv, authTag, ciphertext } (all hex strings).
 //   - The plaintext is a flat JSON object mapping secret names to string values.
 //
@@ -16,16 +16,17 @@
 
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 const ALGORITHM = "aes-256-gcm";
 
 export function resolveSecretsDir(): string {
-  return path.join(process.cwd(), ".cypherclaw", "secrets");
+  return path.join(os.homedir(), ".cypherclaw", "secrets");
 }
 
 export function resolveKeyPath(): string {
-  return path.join(process.cwd(), ".cypherclaw", "secrets.key");
+  return path.join(os.homedir(), ".cypherclaw", "secrets.key");
 }
 
 export function resolveStorePath(): string {

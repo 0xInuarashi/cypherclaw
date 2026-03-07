@@ -17,8 +17,8 @@
 // Auth
 // ----
 //   All endpoints except GET / require an Authorization: Bearer <token>
-//   header. The token is generated on daemon startup and written to
-//   ~/.cypherclaw/gateway.token (mode 0600). Connectors read that file to
+//   header. Tokens are created via `cypherclaw token create <name>` and stored
+//   under ~/.cypherclaw/tokens/. Connectors read that file to
 //   obtain the credential.
 //
 // Why HTTP?

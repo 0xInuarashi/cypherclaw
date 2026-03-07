@@ -25,6 +25,7 @@
 // and ephemeral — they are never part of the conversation history.
 
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { Message, TokenUsage } from "../providers/types.js";
 import { zeroUsage, addUsage } from "../providers/types.js";
@@ -47,12 +48,9 @@ export function validateSessionName(name: string): string {
   return trimmed;
 }
 
-// Returns <cwd>/.cypherclaw/sessions/, creating it if it doesn't exist yet.
-// Sessions are scoped to the directory you run cypherclaw from, so each
-// project keeps its own conversation history. Add .cypherclaw/ to .gitignore
-// if you don't want sessions committed to version control.
+// Returns ~/.cypherclaw/sessions/, creating it if it doesn't exist yet.
 export async function resolveSessionsDir(): Promise<string> {
-  const dir = path.join(process.cwd(), ".cypherclaw", "sessions");
+  const dir = path.join(os.homedir(), ".cypherclaw", "sessions");
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }

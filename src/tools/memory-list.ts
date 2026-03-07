@@ -3,9 +3,9 @@
 // Lists files in the agent's memory store.
 //
 // Two scopes are available:
-//   "session" — scoped to the current session (.cypherclaw/memory/sessions/<sessionId>/).
+//   "session" — scoped to the current session (~/.cypherclaw/memory/sessions/<sessionId>/).
 //               Automatically isolated; no cross-session pollution.
-//   "global"  — shared across all sessions (.cypherclaw/memory/global/).
+//   "global"  — shared across all sessions (~/.cypherclaw/memory/global/).
 //               Use for long-term, project-wide knowledge.
 //
 // This is the entry point for memory-aware behaviour: the agent calls
@@ -13,10 +13,11 @@
 // then uses read_memory to pull the relevant files into context.
 
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { ToolDefinition } from "./types/types.js";
 
-const MEMORY_BASE = () => path.join(process.cwd(), ".cypherclaw", "memory");
+const MEMORY_BASE = () => path.join(os.homedir(), ".cypherclaw", "memory");
 
 export function resolveMemoryScope(scope: "session" | "global", sessionId?: string): string {
   if (scope === "global") {
