@@ -43,7 +43,7 @@ const execAsync = promisify(exec);
 const MAX_OUTPUT_CHARS = 8_000;
 
 // How long (ms) to wait before forcibly killing the child process.
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 1_800_000;
 
 export function createBashTool(sessionId?: string): ToolDefinition {
   const workdir = sessionId ? resolveSessionWorkdir(sessionId) : undefined;
