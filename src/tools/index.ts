@@ -31,7 +31,7 @@
 //   read_guide    — Read the full contents of a built-in guide by filename.
 
 export type { ToolDefinition } from "./types/types.js";
-export { bashTool } from "./bash.js";
+export { bashTool, createBashTool } from "./bash.js";
 export { readFileTool } from "./read-file.js";
 export { writeFileTool } from "./write-file.js";
 export { appendFileTool } from "./append-file.js";
@@ -53,7 +53,7 @@ export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
 export { listGuidesTool, readGuideTool } from "./guide-read.js";
 
-import { bashTool } from "./bash.js";
+import { bashTool, createBashTool } from "./bash.js";
 import { readFileTool } from "./read-file.js";
 import { writeFileTool } from "./write-file.js";
 import { appendFileTool } from "./append-file.js";
@@ -106,8 +106,9 @@ export const defaultTools: ToolDefinition[] = [
 // session ID so they resolve to the correct scoped directories at runtime.
 export function createSessionTools(sessionId: string): ToolDefinition[] {
   return defaultTools.map((tool) => {
-    if (tool.name === "list_memory") return createListMemoryTool(sessionId);
-    if (tool.name === "read_memory") return createReadMemoryTool(sessionId);
+    if (tool.name === "bash")         return createBashTool(sessionId);
+    if (tool.name === "list_memory")  return createListMemoryTool(sessionId);
+    if (tool.name === "read_memory")  return createReadMemoryTool(sessionId);
     if (tool.name === "write_memory") return createWriteMemoryTool(sessionId);
     if (tool.name === "append_memory") return createAppendMemoryTool(sessionId);
     if (tool.name === "search_memory") return createSearchMemoryTool(sessionId);

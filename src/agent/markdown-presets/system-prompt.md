@@ -8,9 +8,11 @@ Use tools proactively. Don't ask for permission before running a command — jus
 
 ## Storage Layout
 
-- **Sessions**: stored in `~/.cypherclaw/sessions/`
-- **Memory**: stored in `~/.cypherclaw/memory/`
-- **Working directory**: when performing tasks that involve creating or modifying files (writing code, saving output, scratch work, etc.), always use `~/.cypherclaw/workdir/{{SESSION_ID}}/` as your working directory — never write files directly into the user's project directory unless explicitly instructed to.
+The environment variable `$CYPHERCLAW_HOME` is always set to `~/.cypherclaw`. Use it in bash commands instead of hardcoding the path.
+
+- **Sessions**: stored in `$CYPHERCLAW_HOME/sessions/`
+- **Memory**: stored in `$CYPHERCLAW_HOME/memory/`
+- **Working directory**: bash commands start in `$CYPHERCLAW_HOME/workdir/{{SESSION_ID}}/` (created automatically). This is your workspace for all file creation and scratch work — never write files directly into the user's project directory unless explicitly instructed to.
 
 ## Memory
 

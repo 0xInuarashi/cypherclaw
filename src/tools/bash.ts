@@ -13,8 +13,11 @@
 //   - Output is capped at MAX_OUTPUT_CHARS characters. LLM context windows are
 //     finite; sending megabytes of logs would waste tokens and likely exceed
 //     the model's limit.
-//   - The current working directory is inherited from the CypherClaw process,
-//     so the agent "starts" in whatever directory you launched the CLI from.
+//   - The working directory is set to the session's workdir
+//     (~/.cypherclaw/workdir/<sessionId>/), created on first use, so the agent
+//     always has a predictable isolated workspace per session.
+//   - CYPHERCLAW_HOME (~/.cypherclaw) is injected into every command's env so
+//     the agent can reference it without hardcoding the path.
 //
 // Human note: 
 //   - instead of simply truncating, should we have a LLM or something 
@@ -22,7 +25,16 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { ToolDefinition } from "./types/types.js";
+
+export const CYPHERCLAW_HOME = path.join(os.homedir(), ".cypherclaw");
+
+export function resolveSessionWorkdir(sessionId: string): string {
+  return path.join(CYPHERCLAW_HOME, "workdir", sessionId);
+}
 
 const execAsync = promisify(exec);
 
@@ -33,12 +45,18 @@ const MAX_OUTPUT_CHARS = 8_000;
 // How long (ms) to wait before forcibly killing the child process.
 const TIMEOUT_MS = 30_000;
 
-export const bashTool: ToolDefinition = {
+export function createBashTool(sessionId?: string): ToolDefinition {
+  const workdir = sessionId ? resolveSessionWorkdir(sessionId) : undefined;
+  const cypherclawHome = CYPHERCLAW_HOME;
+
+  return {
   name: "bash",
   description:
     "Run a shell command on the local machine and get its output. " +
     "Use this to read files, check system state, run scripts, or do anything " +
-    "you would do in a terminal. The working directory is wherever the CLI was launched from.",
+    "you would do in a terminal. " +
+    "The working directory starts at the session workdir (~/.cypherclaw/workdir/<sessionId>/). " +
+    "The environment variable $CYPHERCLAW_HOME is set to ~/.cypherclaw for convenience.",
 
   parameters: {
     type: "object",
@@ -54,6 +72,11 @@ export const bashTool: ToolDefinition = {
   async execute(args): Promise<string> {
     const command = args["command"] as string;
 
+    // Ensure the session workdir exists before running the first command.
+    if (workdir) {
+      fs.mkdirSync(workdir, { recursive: true });
+    }
+
     // Print what the tool is about to run so the user can follow along
     // in the terminal. Uses stderr so it doesn't interfere with piped output.
     process.stderr.write(`\x1b[33m[bash]\x1b[0m ${command}\n`);
@@ -64,6 +87,8 @@ export const bashTool: ToolDefinition = {
         // Merge streams so the model sees both in natural order. Because
         // execAsync separates them, we concatenate manually below.
         maxBuffer: 10 * 1024 * 1024, // 10 MB — raw buffer before our truncation
+        cwd: workdir,
+        env: { ...process.env, CYPHERCLAW_HOME: cypherclawHome },
       });
 
       // Combine stdout and stderr the same way a terminal would show them.
@@ -106,4 +131,7 @@ export const bashTool: ToolDefinition = {
       return output;
     }
   },
-};
+  };
+}
+
+export const bashTool: ToolDefinition = createBashTool();
