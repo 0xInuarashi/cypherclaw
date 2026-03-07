@@ -34,11 +34,13 @@
 
 import process from "node:process";
 import path from "node:path";
+import fs from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { config as loadDotenv } from "dotenv";
 import { startGatewayServer } from "./server.js";
 import { buildAgentFactory } from "./bootstrap.js";
+import { GATEWAY_LOG_FILE } from "./log.js";
 
 loadDotenv({ override: false });
 
@@ -47,6 +49,8 @@ loadDotenv({ override: false });
 const args = process.argv.slice(2);
 const portIndex = args.indexOf("--port");
 const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : undefined;
+const isDebug = args.includes("--debug");
+const isRaw = args.includes("--raw");
 
 // ── Self-daemonization ────────────────────────────────────────────────────────
 //
@@ -58,9 +62,13 @@ const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : undefined;
 if (!process.env["CYPHERCLAW_DAEMON_CHILD"]) {
   const isTsx = import.meta.url.endsWith(".ts");
   const self = fileURLToPath(import.meta.url);
+  const extraFlags = [
+    ...(isDebug ? ["--debug"] : []),
+    ...(isRaw   ? ["--raw"]   : []),
+  ];
   const spawnArgs = isTsx
-    ? [path.resolve(self, "../../..", "node_modules/.bin/tsx"), self]
-    : [self];
+    ? [path.resolve(self, "../../..", "node_modules/.bin/tsx"), self, ...extraFlags]
+    : [self, ...extraFlags];
   const child = spawn(process.execPath, spawnArgs, {
     detached: true,
     stdio: "ignore",
@@ -71,9 +79,39 @@ if (!process.env["CYPHERCLAW_DAEMON_CHILD"]) {
   process.exit(0);
 }
 
+// ── Log file redirection ──────────────────────────────────────────────────────
+//
+// All stdout/stderr from this point is written to the gateway log file.
+// We open in append mode so successive daemon runs accumulate in one file.
+// console.log / console.error automatically follow the reassigned streams.
+
+const logFd = fs.openSync(GATEWAY_LOG_FILE, "a");
+const logStream = fs.createWriteStream("", { fd: logFd, autoClose: false });
+
+// @ts-ignore — Node allows replacing the write/end methods on the stream refs.
+process.stdout.write = logStream.write.bind(logStream);
+// @ts-ignore
+process.stderr.write = logStream.write.bind(logStream);
+
+// Write a timestamped start banner so log tails are easy to orient in time.
+const startBanner = `\n${"─".repeat(72)}\n[cypherclaw] Gateway daemon starting at ${new Date().toISOString()}${isDebug ? " [debug]" : ""}${isRaw ? " [raw]" : ""}\n${"─".repeat(72)}\n`;
+process.stdout.write(startBanner);
+
+// ── Debug / raw event logger ──────────────────────────────────────────────────
+
+let onEvent;
+if (isDebug || isRaw) {
+  const { createDebugLogger, createRawLogger, combineLoggers } = await import("../debug/logger.js");
+  const loggers = [
+    ...(isDebug ? [createDebugLogger()] : []),
+    ...(isRaw   ? [createRawLogger()]   : []),
+  ];
+  onEvent = combineLoggers(...loggers);
+}
+
 // ── Gateway startup ───────────────────────────────────────────────────────────
 
-const getAgent = await buildAgentFactory();
+const getAgent = await buildAgentFactory({ onEvent });
 const gw = await startGatewayServer({ port, getAgent });
 
 // ── Signal handlers ───────────────────────────────────────────────────────────

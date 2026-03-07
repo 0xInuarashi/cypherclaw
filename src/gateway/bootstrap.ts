@@ -9,10 +9,15 @@
 // process is restarted with valid config.
 
 import type { AgentFn } from "../agent/index.js";
+import type { DebugLogger } from "../debug/events.js";
 
 export type AgentFactory = (sessionId: string) => Promise<AgentFn>;
 
-export async function buildAgentFactory(): Promise<AgentFactory | undefined> {
+export type AgentFactoryOpts = {
+  onEvent?: DebugLogger;
+};
+
+export async function buildAgentFactory(opts?: AgentFactoryOpts): Promise<AgentFactory | undefined> {
   try {
     const { loadConfig } = await import("../config/index.js");
     const { createProvider } = await import("../providers/index.js");
@@ -23,7 +28,7 @@ export async function buildAgentFactory(): Promise<AgentFactory | undefined> {
       await import("../sessions/index.js");
 
     const config = loadConfig();
-    const provider = createProvider(config);
+    const provider = createProvider(config, opts?.onEvent);
     const userAddition = process.env.CYPHERCLAW_SYSTEM_PROMPT;
     const systemPromptTemplate = userAddition
       ? `${DEFAULT_SYSTEM_PROMPT}\n\n${userAddition}`

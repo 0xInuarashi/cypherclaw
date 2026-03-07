@@ -11,12 +11,19 @@
 //     Spawns gateway/daemon.ts as a completely separate, detached Node.js
 //     process. "Detached" means it keeps running even after this CLI process
 //     exits. The daemon writes its PID to a temp file so that `stop` and
-//     `status` can find it later.
+//     `status` can find it later. All daemon output is appended to the gateway
+//     log file (see gateway/log.ts).
 //
 //   --foreground:
 //     Runs the gateway directly inside this process instead of spawning a
 //     child. Useful for debugging because you see all log output inline.
 //     The process blocks until you press Ctrl+C.
+//
+// Flags:
+//   --debug    Enable high-level agentic loop traces (rounds, tool calls,
+//              replies). Passed through to the daemon in background mode.
+//   --raw      Enable raw JSON request/response logging for every API call.
+//              Passed through to the daemon in background mode.
 
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -24,6 +31,7 @@ import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
 import { GATEWAY_HOST, GATEWAY_PORT } from "../../gateway/server.js";
 import { isProcessRunning, readPid } from "../../gateway/pid.js";
+import { GATEWAY_LOG_FILE, openLogFileFd } from "../../gateway/log.js";
 
 export function registerStartCommand(program: Command): void {
   program
@@ -31,7 +39,9 @@ export function registerStartCommand(program: Command): void {
     .description("Start the CypherClaw gateway in the background")
     .option("-p, --port <port>", "Port to listen on", String(GATEWAY_PORT))
     .option("--foreground", "Run in the foreground instead of as a background daemon")
-    .action(async (opts: { port: string; foreground?: boolean }) => {
+    .option("--debug", "Log high-level agentic loop traces (rounds, tool calls, replies)")
+    .option("--raw", "Log raw JSON request/response bodies exchanged with the API")
+    .action(async (opts: { port: string; foreground?: boolean; debug?: boolean; raw?: boolean }) => {
       const port = parseInt(opts.port, 10);
 
       // Guard against starting a second gateway. readPid() reads the PID file
@@ -46,11 +56,23 @@ export function registerStartCommand(program: Command): void {
 
       if (opts.foreground) {
         // Foreground mode: start the server in this process and block forever.
+        // Loggers are created here (if flags are set) and passed to bootstrap.
         // Signal handlers allow Ctrl+C / SIGTERM to gracefully close the server
         // (which also deletes the PID file) before exiting.
         const { startGatewayServer } = await import("../../gateway/server.js");
         const { buildAgentFactory } = await import("../../gateway/bootstrap.js");
-        const getAgent = await buildAgentFactory();
+
+        let onEvent;
+        if (opts.debug || opts.raw) {
+          const { createDebugLogger, createRawLogger, combineLoggers } = await import("../../debug/logger.js");
+          const loggers = [
+            ...(opts.debug ? [createDebugLogger()] : []),
+            ...(opts.raw   ? [createRawLogger()]   : []),
+          ];
+          onEvent = combineLoggers(...loggers);
+        }
+
+        const getAgent = await buildAgentFactory({ onEvent });
         const gw = await startGatewayServer({ port, getAgent });
 
         process.on("SIGINT", async () => {
@@ -70,14 +92,13 @@ export function registerStartCommand(program: Command): void {
         await new Promise<never>(() => {});
       } else {
         // Background mode: resolve the absolute path to the daemon entry file,
-        // then spawn it as a detached child process. We pass the port as a CLI
-        // argument so the daemon knows what to bind to.
+        // then spawn it as a detached child process. We pass the port and any
+        // logging flags as CLI arguments so the daemon applies them.
         //
         // `detached: true`  — the child gets its own process group so it keeps
         //                      running after the parent (this CLI process) exits.
-        // `stdio: "ignore"` — we don't attach stdin/stdout/stderr pipes; the
-        //                      daemon's output goes nowhere (can be redirected
-        //                      to a log file in a future improvement).
+        // `stdio`           — stdout and stderr are both redirected to the gateway
+        //                      log file so all daemon output is preserved on disk.
         // `child.unref()`   — tells Node's event loop not to wait for the child
         //                      before allowing this process to exit normally.
         const isTsx = import.meta.url.endsWith(".ts");
@@ -87,23 +108,32 @@ export function registerStartCommand(program: Command): void {
             import.meta.url,
           ),
         );
+
+        const extraFlags = [
+          "--port", String(port),
+          ...(opts.debug ? ["--debug"] : []),
+          ...(opts.raw   ? ["--raw"]   : []),
+        ];
+
         const spawnArgs = isTsx
           ? [
               path.resolve(fileURLToPath(new URL("../../../", import.meta.url)), "node_modules/.bin/tsx"),
               daemonEntry,
-              "--port",
-              String(port),
+              ...extraFlags,
             ]
-          : [daemonEntry, "--port", String(port)];
+          : [daemonEntry, ...extraFlags];
+
+        const logFd = openLogFileFd();
 
         const child = spawn(process.execPath, spawnArgs, {
           detached: true,
-          stdio: "ignore",
+          stdio: ["ignore", logFd, logFd],
           env: { ...process.env, CYPHERCLAW_DAEMON_CHILD: "1" },
         });
 
         child.unref();
         console.log(`[cypherclaw] Gateway starting on ${GATEWAY_HOST}:${port}...`);
+        console.log(`[cypherclaw] Logs: ${GATEWAY_LOG_FILE}`);
       }
     });
 }
