@@ -22,6 +22,7 @@
     "gateway:dev": "npx tsx --watch src/entry.ts start --foreground",
     "gateway:daemon": "npx tsx src/gateway/daemon.ts",
     "gateway:start": "npx tsx src/entry.ts start",
+    "gateway:restart": "npx tsx src/entry.ts stop && npx tsx src/entry.ts start",
     "gateway:stop": "npx tsx src/entry.ts stop",
     "gateway:status": "npx tsx src/entry.ts status",
     "prod:start": "node --env-file=.env dist/entry.js start",
