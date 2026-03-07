@@ -29,6 +29,28 @@ import type { DebugLogger } from "../debug/events.js";
 // How many tool-call rounds to allow before giving up.
 const MAX_TOOL_ROUNDS = 1000;
 
+// Retry configuration for LLM API calls.
+const MAX_LLM_RETRIES = 20;
+const RETRY_BASE_DELAY_MS = 500;
+const RETRY_MAX_DELAY_MS = 30_000;
+
+async function withRetry<T>(fn: () => Promise<T>, emit: DebugLogger): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_LLM_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), RETRY_MAX_DELAY_MS);
+      emit({ type: "llm_raw_request", body: { _retry: attempt, _delayMs: delay } });
+      await new Promise((res) => setTimeout(res, delay));
+    }
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
 // ── Native OpenAI API types ──────────────────────────────────────────────────
 
 type OAIToolCall = {
@@ -116,22 +138,21 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
         // Emit the raw request body before sending so the full payload is visible.
         emit({ type: "llm_raw_request", body: requestBody });
 
-        const res = await fetch(opts.apiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${opts.apiKey}`,
-            ...opts.extraHeaders,
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(`API error ${res.status}: ${body}`);
-        }
-
-        const data = (await res.json()) as OAIResponse;
+        const data = await withRetry(async () => {
+          const res = await fetch(opts.apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${opts.apiKey}`,
+              ...opts.extraHeaders,
+            },
+            body: JSON.stringify(requestBody),
+          });
+          if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+          const json = (await res.json()) as OAIResponse;
+          if (!json.choices?.length) throw new Error(`API returned no choices: ${JSON.stringify(json)}`);
+          return json;
+        }, emit);
 
         // Emit the raw response body exactly as received from the API.
         emit({ type: "llm_raw_response", body: data });
