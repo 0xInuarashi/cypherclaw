@@ -32,6 +32,7 @@ import type { Message, Provider, TokenUsage } from "./types.js";
 import { zeroUsage, addUsage } from "./types.js";
 import type { ToolDefinition } from "../tools/types/types.js";
 import type { DebugLogger } from "../debug/events.js";
+import { fetchWithRetry } from "../utils/fetch-utils.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -127,22 +128,21 @@ export function createAnthropicProvider(opts: {
         // Emit the raw request body before sending so the full payload is visible.
         emit({ type: "llm_raw_request", body: requestBody });
 
-        const res = await fetch(ANTHROPIC_API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": opts.apiKey,
-            "anthropic-version": ANTHROPIC_VERSION,
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`Anthropic API error ${res.status}: ${text}`);
-        }
-
-        const data = (await res.json()) as AnthropicResponse;
+        const data = await fetchWithRetry(async () => {
+          const res = await fetch(ANTHROPIC_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": opts.apiKey,
+              "anthropic-version": ANTHROPIC_VERSION,
+            },
+            body: JSON.stringify(requestBody),
+          });
+          if (!res.ok) throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
+          const json = (await res.json()) as AnthropicResponse;
+          if (!json.content?.length) throw new Error(`Anthropic returned no content: ${JSON.stringify(json)}`);
+          return json;
+        }, emit);
 
         // Emit the raw response body exactly as received from the API.
         emit({ type: "llm_raw_response", body: data });

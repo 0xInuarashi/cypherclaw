@@ -25,31 +25,10 @@ import type { Message, Provider, TokenUsage } from "./types.js";
 import { zeroUsage, addUsage } from "./types.js";
 import type { ToolDefinition } from "../tools/types/types.js";
 import type { DebugLogger } from "../debug/events.js";
+import { fetchWithRetry } from "../utils/fetch-utils.js";
 
 // How many tool-call rounds to allow before giving up.
 const MAX_TOOL_ROUNDS = 1000;
-
-// Retry configuration for LLM API calls.
-const MAX_LLM_RETRIES = 20;
-const RETRY_BASE_DELAY_MS = 500;
-const RETRY_MAX_DELAY_MS = 30_000;
-
-async function withRetry<T>(fn: () => Promise<T>, emit: DebugLogger): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt <= MAX_LLM_RETRIES; attempt++) {
-    if (attempt > 0) {
-      const delay = Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), RETRY_MAX_DELAY_MS);
-      emit({ type: "llm_raw_request", body: { _retry: attempt, _delayMs: delay } });
-      await new Promise((res) => setTimeout(res, delay));
-    }
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError;
-}
 
 // ── Native OpenAI API types ──────────────────────────────────────────────────
 
@@ -138,7 +117,7 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
         // Emit the raw request body before sending so the full payload is visible.
         emit({ type: "llm_raw_request", body: requestBody });
 
-        const data = await withRetry(async () => {
+        const data = await fetchWithRetry(async () => {
           const res = await fetch(opts.apiUrl, {
             method: "POST",
             headers: {
