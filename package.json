@@ -8,6 +8,7 @@
     "cypherclaw": "bin/cypherclaw.mjs"
   },
   "scripts": {
+    "setup": "npx tsx src/entry.ts setup",
     "build": "tsc",
     "test": "node --import tsx/esm --test src/**/test/*.test.ts",
     "dev": "tsx src/index.ts",
