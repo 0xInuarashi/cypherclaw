@@ -9,7 +9,8 @@
 // Design decisions:
 //   - stdout and stderr are both captured and merged so the model sees the
 //     full picture (errors are just as informative as successful output).
-//   - A hard timeout (30 s) prevents runaway commands from hanging the loop.
+//   - A default timeout (60 s) prevents runaway commands from hanging the loop.
+//     Pass long_timeout: true to extend it to 30 minutes for slow commands.
 //   - Output is capped at MAX_OUTPUT_CHARS characters. LLM context windows are
 //     finite; sending megabytes of logs would waste tokens and likely exceed
 //     the model's limit.
@@ -43,7 +44,8 @@ const execAsync = promisify(exec);
 const MAX_OUTPUT_CHARS = 8_000;
 
 // How long (ms) to wait before forcibly killing the child process.
-const TIMEOUT_MS = 1_800_000;
+const DEFAULT_TIMEOUT_MS = 60_000;      // 1 minute
+const LONG_TIMEOUT_MS    = 1_800_000;   // 30 minutes
 
 export function createBashTool(sessionId?: string): ToolDefinition {
   const workdir = sessionId ? resolveSessionWorkdir(sessionId) : undefined;
@@ -56,7 +58,8 @@ export function createBashTool(sessionId?: string): ToolDefinition {
     "Use this to read files, check system state, run scripts, or do anything " +
     "you would do in a terminal. " +
     "The working directory starts at the session workdir (~/.cypherclaw/workdir/<sessionId>/). " +
-    "The environment variable $CYPHERCLAW_HOME is set to ~/.cypherclaw for convenience.",
+    "The environment variable $CYPHERCLAW_HOME is set to ~/.cypherclaw for convenience. " +
+    "Default timeout is 1 minute. Set long_timeout to true for commands that may take longer (up to 30 minutes).",
 
   parameters: {
     type: "object",
@@ -65,12 +68,17 @@ export function createBashTool(sessionId?: string): ToolDefinition {
         type: "string",
         description: "The shell command to execute.",
       },
+      long_timeout: {
+        type: "boolean",
+        description: "Set to true to allow the command up to 30 minutes to complete instead of the default 1 minute.",
+      },
     },
     required: ["command"],
   },
 
   async execute(args): Promise<string> {
     const command = args["command"] as string;
+    const timeoutMs = args["long_timeout"] ? LONG_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 
     // Ensure the session workdir exists before running the first command.
     if (workdir) {
@@ -83,7 +91,7 @@ export function createBashTool(sessionId?: string): ToolDefinition {
 
     try {
       const { stdout, stderr } = await execAsync(command, {
-        timeout: TIMEOUT_MS,
+        timeout: timeoutMs,
         // Merge streams so the model sees both in natural order. Because
         // execAsync separates them, we concatenate manually below.
         maxBuffer: 10 * 1024 * 1024, // 10 MB — raw buffer before our truncation
@@ -116,7 +124,7 @@ export function createBashTool(sessionId?: string): ToolDefinition {
       const error = err as { stdout?: string; stderr?: string; message?: string; killed?: boolean };
 
       if (error.killed) {
-        return `[command timed out after ${TIMEOUT_MS / 1000}s]`;
+        return `[command timed out after ${timeoutMs / 1000}s]`;
       }
 
       const parts: string[] = [];
