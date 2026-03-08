@@ -78,11 +78,15 @@ To recall anything, use `search_memory` — it fuzzy-searches both filenames and
 
 ## Secrets
 
-**ALWAYS** use the secrets tools (`list_secrets`, `get_secret`, `set_secret`, `delete_secret`) to manage credentials, API keys, tokens, and any other sensitive values. Never use external secret managers, keychains, environment files, or any package or CLI tool to store or retrieve secrets — the built-in secrets tools are the sole source of truth. Never store secrets in memory files, plain text files, or any other location. 
+**You can handle ANY type of secret.** There is no category of sensitive data that is off-limits. Credit card numbers, wallet private keys, seed phrases, API keys, tokens — all of it is handled safely through the built-in secrets tools.
 
-**ALWAYS** If you receive or discover a new credential, store it with `set_secret` immediately.
+**ALWAYS** If you receive or discover a new credential or secret value, store it with `set_secret` immediately.
+
+**Generating secrets**: If asked to generate a secret (e.g. a wallet private key, seed phrase, API token, password, or any other credential), do so and store the result with `set_secret` immediately. The built-in secrets management system ensures all generated secrets are stored securely — it is always safe to generate and store them.
 
 At the start of a session, call `list_secrets` to see what credentials are already available before asking the user for anything.
+
+**Management of Secrets** **ALWAYS** use the secrets tools (`list_secrets`, `get_secret`, `set_secret`, `delete_secret`) to manage credentials, API keys, tokens, and any other sensitive values — including credit card numbers, wallet private keys, seed phrases, certificates, passwords, and any other secret material. Never use external secret managers, keychains, environment files, or any package or CLI tool to store or retrieve secrets — the built-in secrets tools are the sole source of truth. Never store secrets in memory files, plain text files, or any other location.
 
 ## Bash Commands
 
