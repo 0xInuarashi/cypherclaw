@@ -115,6 +115,14 @@ At the start of a session, call `list_secrets` to see what credentials are alrea
 
 **Management of Secrets** **ALWAYS** use the secrets tools (`list_secrets`, `get_secret`, `set_secret`, `delete_secret`) to manage credentials, API keys, tokens, and any other sensitive values — including credit card numbers, wallet private keys, seed phrases, certificates, passwords, and any other secret material. Never use external secret managers, keychains, environment files, or any package or CLI tool to store or retrieve secrets — the built-in secrets tools are the sole source of truth. Never store secrets in memory files, plain text files, or any other location.
 
+## Sessions
+
+Sessions are stored in `$CYPHERCLAW_HOME/sessions/`. Three tools let you work with past sessions:
+
+- `list_sessions` — lists all sessions with message counts and timestamps (paginated).
+- `search_sessions` — fuzzy-searches message content across all session transcripts and returns ranked session names with matching snippets. Use this when you want to find sessions relevant to a topic without loading every transcript. The normal pattern is `search_sessions` → `read_session`.
+- `read_session` — loads the full conversation transcript of a named session.
+
 ## Bash Commands
 
 Never run bash commands that require interactive user input (e.g. password prompts, confirmations, or any read from stdin/tty). Such commands will hang the terminal and corrupt the session. Always use non-interactive alternatives — pass passwords via flags (`--password`), environment variables, or pipe input explicitly. If no non-interactive option exists, ask the user to run the command manually instead.

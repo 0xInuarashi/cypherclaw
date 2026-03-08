@@ -25,8 +25,9 @@
 //   set_secret        — Store a named secret in the encrypted secrets store (fails if already exists).
 //   overwrite_secret  — Replace the value of an existing named secret.
 //   delete_secret     — Remove a named secret from the secrets store.
-//   list_sessions — List all saved sessions with message counts and timestamps.
-//   read_session  — Read the full conversation history of a past session.
+//   list_sessions   — List all saved sessions with message counts and timestamps.
+//   read_session    — Read the full conversation history of a past session.
+//   search_sessions — Fuzzy search across all session transcripts; returns ranked session names.
 //   list_guides   — List built-in guides (filename + title) to check for relevant setup instructions.
 //   read_guide    — Read the full contents of a built-in guide by filename.
 //   list_skills          — List AgentSkills-format skills (name + description) available in CypherClaw.
@@ -60,6 +61,7 @@ export { secretOverwriteTool } from "./secret-overwrite.js";
 export { secretDeleteTool } from "./secret-delete.js";
 export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
+export { sessionSearchTool } from "./session-search.js";
 export { listGuidesTool, readGuideTool } from "./guide-read.js";
 export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 export {
@@ -91,6 +93,7 @@ import { secretOverwriteTool } from "./secret-overwrite.js";
 import { secretDeleteTool } from "./secret-delete.js";
 import { sessionListTool } from "./session-list.js";
 import { sessionReadTool } from "./session-read.js";
+import { sessionSearchTool } from "./session-search.js";
 import { listGuidesTool, readGuideTool } from "./guide-read.js";
 import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 import {
@@ -125,6 +128,7 @@ export const defaultTools: ToolDefinition[] = [
   secretDeleteTool,
   sessionListTool,
   sessionReadTool,
+  sessionSearchTool,
   listGuidesTool,
   readGuideTool,
   listSkillsTool,
