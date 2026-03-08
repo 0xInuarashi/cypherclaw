@@ -162,7 +162,11 @@ export function createAnthropicProvider(opts: {
           const textBlock = data.content.find(
             (b): b is AnthropicTextBlock => b.type === "text",
           );
-          if (!textBlock?.text) throw new Error("Anthropic returned an empty response");
+          if (!textBlock?.text) {
+            // Model returned end_turn with no text — retry the same round.
+            emit({ type: "llm_raw_request", body: { _retry: "empty_response", round: round + 1 } });
+            continue;
+          }
           emit({ type: "llm_response_text", text: textBlock.text });
           return { text: textBlock.text, usage: totalUsage };
         }

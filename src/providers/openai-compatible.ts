@@ -151,7 +151,11 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
         // ── Step 2: plain text reply → we're done ────────────────────────────
         if (choice.finish_reason === "stop" || !choice.message.tool_calls?.length) {
           const text = choice.message.content;
-          if (!text) throw new Error("Model returned an empty response");
+          if (!text) {
+            // Model returned a stop with no content — retry the same round.
+            emit({ type: "llm_raw_request", body: { _retry: "empty_response", round: round + 1 } });
+            continue;
+          }
           emit({ type: "llm_response_text", text });
           return { text, usage: totalUsage };
         }
