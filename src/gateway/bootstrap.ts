@@ -23,7 +23,7 @@ export async function buildAgentFactory(opts?: AgentFactoryOpts): Promise<AgentF
     const { createProvider } = await import("../providers/index.js");
     const { createAgent } = await import("../agent/index.js");
     const { createSessionTools } = await import("../tools/index.js");
-    const { DEFAULT_SYSTEM_PROMPT } = await import("../agent/system-prompt.js");
+    const { DEFAULT_SYSTEM_PROMPT, resolveSystemPrompt } = await import("../agent/system-prompt.js");
     const { loadSession, appendToSession, appendSessionTokens, DEFAULT_HISTORY_LIMIT } =
       await import("../sessions/index.js");
 
@@ -44,7 +44,7 @@ export async function buildAgentFactory(opts?: AgentFactoryOpts): Promise<AgentF
       let savedMessageCount = initialHistory.length;
 
       const agent = createAgent({
-        systemPrompt: systemPromptTemplate.replace(/\{\{SESSION_ID\}\}/g, sessionId),
+        systemPrompt: resolveSystemPrompt(systemPromptTemplate, sessionId),
         provider,
         tools: createSessionTools(sessionId),
         initialHistory: initialHistory.length > 0 ? initialHistory : undefined,
