@@ -179,6 +179,18 @@ export function createRawLogger(): DebugLogger {
   };
 }
 
+// ── Round logger (always on) ──────────────────────────────────────────────────
+// Prints just the "[llm ↑] round X" line on every API call.
+// Always active in normal chat — no flag required.
+
+export function createRoundLogger(): DebugLogger {
+  return function log(event: DebugEvent): void {
+    if (event.type === "llm_request") {
+      console.log(C.cyan(C.bold("[llm ↑]")) + C.gray(` round ${event.round}`));
+    }
+  };
+}
+
 // ── Combiner ──────────────────────────────────────────────────────────────────
 // Merges any number of loggers into a single callback. Each event is forwarded
 // to every logger in order. Used when both --debug and --raw are active.

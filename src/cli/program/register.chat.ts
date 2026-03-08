@@ -72,18 +72,15 @@ export function registerChatCommand(program: Command): void {
       const { createAgent } = await import("../../agent/index.js");
       const { runTerminalChannel } = await import("../../channels/terminal/index.js");
 
-      // Build a combined event logger from whichever flags are active.
-      // If neither --debug nor --raw is set, onEvent stays undefined and the
-      // provider runs silently.
-      let onEvent;
-      if (opts.debug || opts.raw) {
-        const { createDebugLogger, createRawLogger, combineLoggers } = await import("../../debug/logger.js");
-        const loggers = [
-          ...(opts.debug ? [createDebugLogger()] : []),
-          ...(opts.raw   ? [createRawLogger()]   : []),
-        ];
-        onEvent = combineLoggers(...loggers);
-      }
+      // Build a combined event logger. The round logger is always active;
+      // --debug and --raw layer additional detail on top.
+      const { createRoundLogger, createDebugLogger, createRawLogger, combineLoggers } = await import("../../debug/logger.js");
+      const loggers = [
+        createRoundLogger(),
+        ...(opts.debug ? [createDebugLogger()] : []),
+        ...(opts.raw   ? [createRawLogger()]   : []),
+      ];
+      const onEvent = combineLoggers(...loggers);
 
       // When --tool-confirm is active, create the shared readline interface
       // here so both the confirm wrapper and the terminal channel use the same
