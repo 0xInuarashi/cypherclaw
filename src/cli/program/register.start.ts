@@ -62,15 +62,13 @@ export function registerStartCommand(program: Command): void {
         const { startGatewayServer } = await import("../../gateway/server.js");
         const { buildAgentFactory } = await import("../../gateway/bootstrap.js");
 
-        let onEvent;
-        if (opts.debug || opts.raw) {
-          const { createDebugLogger, createRawLogger, combineLoggers } = await import("../../debug/logger.js");
-          const loggers = [
-            ...(opts.debug ? [createDebugLogger()] : []),
-            ...(opts.raw   ? [createRawLogger()]   : []),
-          ];
-          onEvent = combineLoggers(...loggers);
-        }
+        const { createRoundLogger, createDebugLogger, createRawLogger, combineLoggers } = await import("../../debug/logger.js");
+        const loggers = [
+          createRoundLogger(),
+          ...(opts.debug ? [createDebugLogger()] : []),
+          ...(opts.raw   ? [createRawLogger()]   : []),
+        ];
+        const onEvent = combineLoggers(...loggers);
 
         const getAgent = await buildAgentFactory({ onEvent });
         const gw = await startGatewayServer({ port, getAgent });

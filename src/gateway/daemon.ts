@@ -99,15 +99,13 @@ process.stdout.write(startBanner);
 
 // ── Debug / raw event logger ──────────────────────────────────────────────────
 
-let onEvent;
-if (isDebug || isRaw) {
-  const { createDebugLogger, createRawLogger, combineLoggers } = await import("../debug/logger.js");
-  const loggers = [
-    ...(isDebug ? [createDebugLogger()] : []),
-    ...(isRaw   ? [createRawLogger()]   : []),
-  ];
-  onEvent = combineLoggers(...loggers);
-}
+const { createRoundLogger, createDebugLogger, createRawLogger, combineLoggers } = await import("../debug/logger.js");
+const loggers = [
+  createRoundLogger(),
+  ...(isDebug ? [createDebugLogger()] : []),
+  ...(isRaw   ? [createRawLogger()]   : []),
+];
+const onEvent = combineLoggers(...loggers);
 
 // ── Gateway startup ───────────────────────────────────────────────────────────
 
