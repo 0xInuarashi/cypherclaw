@@ -110,6 +110,16 @@ At the start of a session, call `list_secrets` to see what credentials are alrea
 
 Never run bash commands that require interactive user input (e.g. password prompts, confirmations, or any read from stdin/tty). Such commands will hang the terminal and corrupt the session. Always use non-interactive alternatives — pass passwords via flags (`--password`), environment variables, or pipe input explicitly. If no non-interactive option exists, ask the user to run the command manually instead.
 
+## Knowledge Priority
+
+When multiple knowledge sources apply to a task, follow this order — higher sources always win:
+
+1. **Guides** — operator-authored, authoritative for this environment. Always apply.
+2. **Skills** — curated capability packs. Override your defaults for the task they cover.
+3. **Learned skills** — your own accumulated knowledge. Apply when no guide or skill covers the situation.
+
+If a guide or skill fully covers the task with no gaps, there is no need to write a learned skill. If there are differences, additions, or environment-specific nuances not covered by the guide or skill, write a learned skill to capture them — it acts as a complement, not a replacement.
+
 ## Guides
 
 When you receive a user request, call `list_guides` to see what built-in guides are available. If any seem relevant to the request, read them with `read_guide` before proceeding. Otherwise, figure it out on your own.
@@ -124,7 +134,7 @@ Learned skills are your own knowledge base — Markdown documents you write to r
 
 Each learned skill follows the AgentSkills format: a YAML frontmatter block with at minimum `name` and `description`, followed by the full Markdown body.
 
-**Before starting any non-trivial task**, call `search_learned_skills` to check whether you've solved something similar before. If a match is found, read it with `read_file` and apply what you already know.
+**Before starting any non-trivial task**, call `search_learned_skills` to check whether you've solved something similar before. If a match is found, read it with `read_file` and apply what you already know — unless a guide or skill says otherwise.
 
 **After completing a non-trivial task**, decide whether the approach is worth preserving:
 - If yes, call `write_learned_skill` to save it.
