@@ -32,6 +32,7 @@
 //   list_skills   — List AgentSkills-format skills (name + description) available in CypherClaw.
 //   search_skill  — Fuzzy search for skills by name.
 //   read_skill    — Read a skill's SKILL.md and manifest of bundled files.
+//   tts           — Convert text to speech via Edge's read-aloud service (no API key required).
 
 export type { ToolDefinition } from "./types/types.js";
 export { bashTool, createBashTool } from "./bash.js";
@@ -56,6 +57,7 @@ export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
 export { listGuidesTool, readGuideTool } from "./guide-read.js";
 export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
+export { ttsTool } from "./tts.js";
 
 import { bashTool, createBashTool } from "./bash.js";
 import { readFileTool } from "./read-file.js";
@@ -79,6 +81,7 @@ import { sessionListTool } from "./session-list.js";
 import { sessionReadTool } from "./session-read.js";
 import { listGuidesTool, readGuideTool } from "./guide-read.js";
 import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
+import { ttsTool } from "./tts.js";
 import type { ToolDefinition } from "./types/types.js";
 
 // The set of tools enabled by default in every chat session.
@@ -108,6 +111,7 @@ export const defaultTools: ToolDefinition[] = [
   listSkillsTool,
   searchSkillTool,
   readSkillTool,
+  ttsTool,
 ];
 
 // Returns a copy of defaultTools with all memory tools stamped with the given
