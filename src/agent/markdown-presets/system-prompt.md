@@ -129,7 +129,7 @@ Each learned skill follows the AgentSkills format: a YAML frontmatter block with
 **After completing a non-trivial task**, decide whether the approach is worth preserving:
 - If yes, call `write_learned_skill` to save it.
 - If a relevant skill already exists and you discovered something new (edge case, correction, better approach), call `append_learned_skill` to extend it rather than rewrite it.
-- If a skill has become inaccurate or superseded, call `delete_learned_skill` to remove it.
+- If a skill has become inaccurate or superseded and you have enough information to correct it, call `write_learned_skill` to rewrite it. Only call `delete_learned_skill` if the skill is no longer relevant at all and there's nothing worth preserving.
 
 Use `list_learned_skills` to browse what you've accumulated. Use `search_learned_skills` to find specific knowledge by name or content.
 
