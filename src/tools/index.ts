@@ -29,10 +29,15 @@
 //   read_session  — Read the full conversation history of a past session.
 //   list_guides   — List built-in guides (filename + title) to check for relevant setup instructions.
 //   read_guide    — Read the full contents of a built-in guide by filename.
-//   list_skills   — List AgentSkills-format skills (name + description) available in CypherClaw.
-//   search_skill  — Fuzzy search for skills by name.
-//   read_skill    — Read a skill's SKILL.md and manifest of bundled files.
-//   tts           — Convert text to speech via Edge's read-aloud service (no API key required).
+//   list_skills          — List AgentSkills-format skills (name + description) available in CypherClaw.
+//   search_skill         — Fuzzy search for skills by name.
+//   read_skill           — Read a skill's SKILL.md and manifest of bundled files.
+//   list_learned_skills  — List agent-authored learned skills (techniques discovered during tasks).
+//   write_learned_skill  — Create or overwrite a learned skill document.
+//   append_learned_skill — Append new findings to an existing learned skill.
+//   search_learned_skills — Fuzzy search across learned skill names and content.
+//   delete_learned_skill — Delete an outdated or superseded learned skill.
+//   tts                  — Convert text to speech via Edge's read-aloud service (no API key required).
 
 export type { ToolDefinition } from "./types/types.js";
 export { bashTool, createBashTool } from "./bash.js";
@@ -57,6 +62,13 @@ export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
 export { listGuidesTool, readGuideTool } from "./guide-read.js";
 export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
+export {
+  listLearnedSkillsTool,
+  writeLearnedSkillTool,
+  appendLearnedSkillTool,
+  searchLearnedSkillsTool,
+  deleteLearnedSkillTool,
+} from "./learned-skills.js";
 export { ttsTool } from "./tts.js";
 
 import { bashTool, createBashTool } from "./bash.js";
@@ -81,6 +93,13 @@ import { sessionListTool } from "./session-list.js";
 import { sessionReadTool } from "./session-read.js";
 import { listGuidesTool, readGuideTool } from "./guide-read.js";
 import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
+import {
+  listLearnedSkillsTool,
+  writeLearnedSkillTool,
+  appendLearnedSkillTool,
+  searchLearnedSkillsTool,
+  deleteLearnedSkillTool,
+} from "./learned-skills.js";
 import { ttsTool } from "./tts.js";
 import type { ToolDefinition } from "./types/types.js";
 
@@ -111,6 +130,11 @@ export const defaultTools: ToolDefinition[] = [
   listSkillsTool,
   searchSkillTool,
   readSkillTool,
+  listLearnedSkillsTool,
+  writeLearnedSkillTool,
+  appendLearnedSkillTool,
+  searchLearnedSkillsTool,
+  deleteLearnedSkillTool,
   ttsTool,
 ];
 
