@@ -32,11 +32,11 @@
 //   list_skills          — List AgentSkills-format skills (name + description) available in CypherClaw.
 //   search_skill         — Fuzzy search for skills by name.
 //   read_skill           — Read a skill's SKILL.md and manifest of bundled files.
-//   list_learned_skills  — List agent-authored learned skills (techniques discovered during tasks).
-//   write_learned_skill  — Create or overwrite a learned skill document.
-//   append_learned_skill — Append new findings to an existing learned skill.
-//   search_learned_skills — Fuzzy search across learned skill names and content.
-//   delete_learned_skill — Delete an outdated or superseded learned skill.
+//   list_experience   — List agent experience entries (techniques discovered during tasks).
+//   write_experience  — Create or overwrite an experience entry.
+//   append_experience — Append new findings to an existing experience entry.
+//   search_experience — Fuzzy search across experience entry names and content.
+//   delete_experience — Delete an outdated or superseded experience entry.
 //   tts                  — Convert text to speech via Edge's read-aloud service (no API key required).
 
 export type { ToolDefinition } from "./types/types.js";
@@ -63,12 +63,12 @@ export { sessionReadTool } from "./session-read.js";
 export { listGuidesTool, readGuideTool } from "./guide-read.js";
 export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 export {
-  listLearnedSkillsTool,
-  writeLearnedSkillTool,
-  appendLearnedSkillTool,
-  searchLearnedSkillsTool,
-  deleteLearnedSkillTool,
-} from "./learned-skills.js";
+  listExperienceTool,
+  writeExperienceTool,
+  appendExperienceTool,
+  searchExperienceTool,
+  deleteExperienceTool,
+} from "./experience.js";
 export { ttsTool } from "./tts.js";
 
 import { bashTool, createBashTool } from "./bash.js";
@@ -94,12 +94,12 @@ import { sessionReadTool } from "./session-read.js";
 import { listGuidesTool, readGuideTool } from "./guide-read.js";
 import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 import {
-  listLearnedSkillsTool,
-  writeLearnedSkillTool,
-  appendLearnedSkillTool,
-  searchLearnedSkillsTool,
-  deleteLearnedSkillTool,
-} from "./learned-skills.js";
+  listExperienceTool,
+  writeExperienceTool,
+  appendExperienceTool,
+  searchExperienceTool,
+  deleteExperienceTool,
+} from "./experience.js";
 import { ttsTool } from "./tts.js";
 import type { ToolDefinition } from "./types/types.js";
 
@@ -130,11 +130,11 @@ export const defaultTools: ToolDefinition[] = [
   listSkillsTool,
   searchSkillTool,
   readSkillTool,
-  listLearnedSkillsTool,
-  writeLearnedSkillTool,
-  appendLearnedSkillTool,
-  searchLearnedSkillsTool,
-  deleteLearnedSkillTool,
+  listExperienceTool,
+  writeExperienceTool,
+  appendExperienceTool,
+  searchExperienceTool,
+  deleteExperienceTool,
   ttsTool,
 ];
 

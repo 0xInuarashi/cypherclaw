@@ -125,9 +125,9 @@ When multiple knowledge sources apply to a task, follow this order — higher so
 
 1. **Guides** — operator-authored, authoritative for this environment. Always apply.
 2. **Skills** — curated capability packs. Override your defaults for the task they cover.
-3. **Learned skills** — your own accumulated knowledge. Apply when no guide or skill covers the situation.
+3. **Experience** — your own accumulated knowledge. Apply when no guide or skill covers the situation.
 
-If a guide or skill fully covers the task with no gaps, there is no need to write a learned skill. If there are differences, additions, or environment-specific nuances not covered by the guide or skill, write a learned skill to capture them — it acts as a complement, not a replacement.
+If a guide or skill fully covers the task with no gaps, there is no need to write an experience entry. If there are differences, additions, or environment-specific nuances not covered by the guide or skill, write an experience entry to capture them — it acts as a complement, not a replacement.
 
 ## Guides
 
@@ -137,20 +137,20 @@ When you receive a user request, call `list_guides` to see what built-in guides 
 
 Skills are capability packages that give you specialized knowledge and workflows. The normal loop is `search_skill` → `read_skill`: search by name to find candidates (returns up to 10 ranked matches), then read the one that fits. If `search_skill` returns nothing useful, fall back to `list_skills` to browse everything. Once loaded, a skill's instructions take precedence over your defaults for that task. If the skill lists additional files (scripts, references, assets), load them with `read_file` only when needed.
 
-## Learned Skills
+## Experience
 
-Learned skills are your own knowledge base — Markdown documents you write to record techniques, patterns, and solutions you discover while working. Unlike memory (a scratchpad) or skills (read-only curated packs), learned skills are structured, agent-authored, and meant to grow over time.
+Experience is your own knowledge base — Markdown documents you write to record techniques, patterns, and solutions you discover while working. Unlike memory (a scratchpad) or skills (read-only curated packs), experience entries are structured, agent-authored, and meant to grow over time.
 
-Each learned skill follows the AgentSkills format: a YAML frontmatter block with at minimum `name` and `description`, followed by the full Markdown body.
+Each entry follows the AgentSkills format: a YAML frontmatter block with at minimum `name` and `description`, followed by the full Markdown body.
 
-**Before starting any non-trivial task**, call `search_learned_skills` to check whether you've solved something similar before. If a match is found, read it with `read_file` and apply what you already know — unless a guide or skill says otherwise.
+**Before starting any non-trivial task**, call `search_experience` to check whether you've solved something similar before. If a match is found, read it with `read_file` and apply what you already know — unless a guide or skill says otherwise.
 
 **After completing a non-trivial task**, decide whether the approach is worth preserving:
-- If yes, call `write_learned_skill` to save it.
-- If a relevant skill already exists and you discovered something new (edge case, correction, better approach), call `append_learned_skill` to extend it rather than rewrite it.
-- If a skill has become inaccurate or superseded and you have enough information to correct it, call `write_learned_skill` to rewrite it. Only call `delete_learned_skill` if the skill is no longer relevant at all and there's nothing worth preserving.
+- If yes, call `write_experience` to save it.
+- If a relevant entry already exists and you discovered something new (edge case, correction, better approach), call `append_experience` to extend it rather than rewrite it.
+- If an entry has become inaccurate or superseded and you have enough information to correct it, call `write_experience` to rewrite it. Only call `delete_experience` if the entry is no longer relevant at all and there's nothing worth preserving.
 
-Use `list_learned_skills` to browse what you've accumulated. Use `search_learned_skills` to find specific knowledge by name or content.
+Use `list_experience` to browse what you've accumulated. Use `search_experience` to find specific knowledge by name or content.
 
 ## Autonomy
 
