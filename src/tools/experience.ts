@@ -338,6 +338,64 @@ export const searchExperienceTool: ToolDefinition = {
 };
 
 // ---------------------------------------------------------------------------
+// read_experience
+// ---------------------------------------------------------------------------
+
+const MAX_OUTPUT_CHARS = 20_000;
+
+export const readExperienceTool: ToolDefinition = {
+  name: "read_experience",
+  description:
+    "Read the full contents of an experience entry by name. " +
+    "Use search_experience or list_experience to find the entry name first, " +
+    "then call this to load the full Markdown content before applying it to a task.",
+
+  parameters: {
+    type: "object",
+    properties: {
+      name: {
+        type: "string",
+        description: "Entry identifier (as shown by list_experience or search_experience), without the .md extension.",
+      },
+    },
+    required: ["name"],
+  },
+
+  async execute(args): Promise<string> {
+    const name = (args["name"] as string).trim();
+    if (!name) return "Error: name must not be empty.";
+
+    let filePath: string;
+    try {
+      filePath = entryPath(name);
+    } catch (err: unknown) {
+      return `Error: ${(err as Error).message}`;
+    }
+
+    process.stderr.write(`\x1b[36m[read_experience]\x1b[0m ${filePath}\n`);
+
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+
+      if (content.length > MAX_OUTPUT_CHARS) {
+        return (
+          content.slice(0, MAX_OUTPUT_CHARS) +
+          `\n\n[file truncated — ${content.length - MAX_OUTPUT_CHARS} chars omitted]`
+        );
+      }
+
+      return content || "(empty entry)";
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
+      if (error.code === "ENOENT") {
+        return `Error: experience not found: "${name}". Use list_experience to see available entries.`;
+      }
+      return `Error reading experience: ${error.message ?? String(err)}`;
+    }
+  },
+};
+
+// ---------------------------------------------------------------------------
 // delete_experience
 // ---------------------------------------------------------------------------
 

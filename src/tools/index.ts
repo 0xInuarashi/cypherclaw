@@ -34,6 +34,7 @@
 //   search_skill         — Fuzzy search for skills by name.
 //   read_skill           — Read a skill's SKILL.md and manifest of bundled files.
 //   list_experience   — List agent experience entries (techniques discovered during tasks).
+//   read_experience   — Read the full contents of an experience entry by name.
 //   write_experience  — Create or overwrite an experience entry.
 //   append_experience — Append new findings to an existing experience entry.
 //   search_experience — Fuzzy search across experience entry names and content.
@@ -66,6 +67,7 @@ export { listGuidesTool, readGuideTool } from "./guide-read.js";
 export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 export {
   listExperienceTool,
+  readExperienceTool,
   writeExperienceTool,
   appendExperienceTool,
   searchExperienceTool,
@@ -98,6 +100,7 @@ import { listGuidesTool, readGuideTool } from "./guide-read.js";
 import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 import {
   listExperienceTool,
+  readExperienceTool,
   writeExperienceTool,
   appendExperienceTool,
   searchExperienceTool,
@@ -135,6 +138,7 @@ export const defaultTools: ToolDefinition[] = [
   searchSkillTool,
   readSkillTool,
   listExperienceTool,
+  readExperienceTool,
   writeExperienceTool,
   appendExperienceTool,
   searchExperienceTool,
