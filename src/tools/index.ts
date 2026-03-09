@@ -68,8 +68,8 @@ export {
   sessionReadTool,
   sessionSearchTool,
 } from "./session.js";
-export { listGuidesTool, readGuideTool, searchGuidesTool } from "./guide-read.js";
-export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
+export { listGuidesTool, readGuideTool, searchGuidesTool } from "./guide.js";
+export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill.js";
 export {
   listExperienceTool,
   readExperienceTool,
@@ -95,8 +95,8 @@ import {
 } from "./memory.js";
 import { secretListTool, secretGetTool, secretSetTool, secretOverwriteTool, secretDeleteTool } from "./secret.js";
 import { sessionListTool, sessionReadTool, sessionSearchTool } from "./session.js";
-import { listGuidesTool, readGuideTool, searchGuidesTool } from "./guide-read.js";
-import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
+import { listGuidesTool, readGuideTool, searchGuidesTool } from "./guide.js";
+import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill.js";
 import {
   listExperienceTool,
   readExperienceTool,

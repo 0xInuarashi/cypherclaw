@@ -1,5 +1,5 @@
-// tools/skill-read.ts
-// -------------------
+// tools/skill.ts
+// --------------
 // Provides access to AgentSkills-format skills bundled with CypherClaw.
 //
 // Two tools are exported:

@@ -1,5 +1,5 @@
-// tools/guide-read.ts
-// -------------------
+// tools/guide.ts
+// --------------
 // Provides access to the built-in guides bundled with CypherClaw.
 //
 // Three tools are exported:

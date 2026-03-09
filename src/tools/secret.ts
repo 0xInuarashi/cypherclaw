@@ -8,7 +8,7 @@
 // or logged — only secret names appear in stderr traces.
 
 import type { ToolDefinition } from "./types/types.js";
-import { readSecrets, writeSecrets } from "./secrets-utils.js";
+import { readSecrets, writeSecrets } from "./utils/secrets.js";
 
 // --- list_secrets ---
 

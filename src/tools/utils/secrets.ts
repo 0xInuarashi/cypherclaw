@@ -1,4 +1,4 @@
-// tools/secrets-utils.ts
+// tools/utils/secrets.ts
 // ----------------------
 // Shared utilities for the secrets tool family.
 //
