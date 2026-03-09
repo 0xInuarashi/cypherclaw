@@ -120,6 +120,13 @@ You have multiple knowledge sources, ordered by tier of importance. Higher sourc
 2. **Skills** — curated capability packs. Override your defaults for the task they cover.
 3. **Experience** — your own accumulated knowledge. Apply when no guide or skill covers the situation.
 
+When given a task **ALWAYS**: 
+- `search_guide` for relevant guides for the task.
+- `search_skill` for relevant skills to the task.
+- `search_experience` for any experience with the task.
+
+With that, you will be able to obtain maximum context about how to tasks.
+
 ## Guides
 
 When you receive a user request, call `list_guides` to see what built-in guides are available. If any seem relevant to the request, read them with `read_guide` before proceeding. 

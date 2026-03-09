@@ -2,9 +2,10 @@
 // -------------------
 // Provides access to the built-in guides bundled with CypherClaw.
 //
-// Two tools are exported:
-//   list_guides — lists all available guides with their title and filename.
-//   read_guide  — reads the full contents of a guide by filename.
+// Three tools are exported:
+//   list_guides   — lists all available guides with their title and filename.
+//   read_guide    — reads the full contents of a guide by filename.
+//   search_guides — fuzzy search across guide filenames and contents.
 //
 // Guides live in src/guides/ (or dist/guides/ when built) and are resolved
 // relative to this file using import.meta.url so the path works in both
@@ -14,6 +15,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ToolDefinition } from "./types/types.js";
+import { fuzzyScore } from "./utils/fuzzy.js";
 
 const GUIDES_DIR = path.resolve(fileURLToPath(import.meta.url), "../../guides");
 
@@ -114,5 +116,96 @@ export const readGuideTool: ToolDefinition = {
       }
       return `Error reading guide: ${error.message ?? String(err)}`;
     }
+  },
+};
+
+const SEARCH_MAX_RESULTS = 20;
+const SEARCH_CONTENT_THRESHOLD = 0.25;
+const SEARCH_FILENAME_THRESHOLD = 0.2;
+const SEARCH_SNIPPET_CHARS = 120;
+
+type GuideHit = {
+  file: string;
+  matchType: "filename" | "content";
+  snippet?: string;
+  lineNumber?: number;
+  score: number;
+};
+
+export const searchGuidesTool: ToolDefinition = {
+  name: "search_guides",
+  description:
+    "Fuzzy search across built-in CypherClaw guides — matches both filenames and guide contents. " +
+    "Use this to quickly find relevant guides without knowing the exact filename. " +
+    "Returns matching guides and lines ranked by similarity score.",
+
+  parameters: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "The search query. Fuzzy-matched against filenames and every line of every guide.",
+      },
+      maxResults: {
+        type: "number",
+        description: `Maximum number of results to return. Defaults to ${SEARCH_MAX_RESULTS}.`,
+      },
+    },
+    required: ["query"],
+  },
+
+  async execute(args): Promise<string> {
+    const query = (args["query"] as string).trim();
+    const maxResults = (args["maxResults"] as number | undefined) ?? SEARCH_MAX_RESULTS;
+
+    if (!query) return "Error: query must not be empty.";
+
+    process.stderr.write(`\x1b[33m[search_guides]\x1b[0m ${query}\n`);
+
+    const files = await listGuideFiles();
+    const hits: GuideHit[] = [];
+
+    for (const file of files) {
+      const filenameScore = fuzzyScore(query, file);
+      if (filenameScore >= SEARCH_FILENAME_THRESHOLD) {
+        hits.push({ file, matchType: "filename", score: filenameScore });
+      }
+
+      let content: string;
+      try {
+        content = await fs.readFile(path.join(GUIDES_DIR, file), "utf-8");
+      } catch {
+        continue;
+      }
+
+      const lines = content.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+
+        const lineScore = fuzzyScore(query, line);
+        if (lineScore >= SEARCH_CONTENT_THRESHOLD) {
+          const snippet =
+            line.length > SEARCH_SNIPPET_CHARS
+              ? line.slice(0, SEARCH_SNIPPET_CHARS) + "…"
+              : line;
+          hits.push({ file, matchType: "content", snippet, lineNumber: i + 1, score: lineScore });
+        }
+      }
+    }
+
+    if (hits.length === 0) {
+      return "No guides matched your query.";
+    }
+
+    const ranked = hits.sort((a, b) => b.score - a.score).slice(0, maxResults);
+
+    return ranked
+      .map((hit) =>
+        hit.matchType === "filename"
+          ? `${hit.file} (filename match, score ${hit.score.toFixed(2)})`
+          : `${hit.file}:${hit.lineNumber} (score ${hit.score.toFixed(2)}) — ${hit.snippet}`,
+      )
+      .join("\n");
   },
 };

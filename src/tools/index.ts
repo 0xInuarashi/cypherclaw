@@ -30,6 +30,7 @@
 //   search_sessions — Fuzzy search across all session transcripts; returns ranked session names.
 //   list_guides   — List built-in guides (filename + title) to check for relevant setup instructions.
 //   read_guide    — Read the full contents of a built-in guide by filename.
+//   search_guides — Fuzzy search across guide filenames and contents.
 //   list_skills          — List AgentSkills-format skills (name + description) available in CypherClaw.
 //   search_skill         — Fuzzy search for skills by name.
 //   read_skill           — Read a skill's SKILL.md and manifest of bundled files.
@@ -63,7 +64,7 @@ export { secretDeleteTool } from "./secret-delete.js";
 export { sessionListTool } from "./session-list.js";
 export { sessionReadTool } from "./session-read.js";
 export { sessionSearchTool } from "./session-search.js";
-export { listGuidesTool, readGuideTool } from "./guide-read.js";
+export { listGuidesTool, readGuideTool, searchGuidesTool } from "./guide-read.js";
 export { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 export {
   listExperienceTool,
@@ -96,7 +97,7 @@ import { secretDeleteTool } from "./secret-delete.js";
 import { sessionListTool } from "./session-list.js";
 import { sessionReadTool } from "./session-read.js";
 import { sessionSearchTool } from "./session-search.js";
-import { listGuidesTool, readGuideTool } from "./guide-read.js";
+import { listGuidesTool, readGuideTool, searchGuidesTool } from "./guide-read.js";
 import { listSkillsTool, searchSkillTool, readSkillTool } from "./skill-read.js";
 import {
   listExperienceTool,
@@ -134,6 +135,7 @@ export const defaultTools: ToolDefinition[] = [
   sessionSearchTool,
   listGuidesTool,
   readGuideTool,
+  searchGuidesTool,
   listSkillsTool,
   searchSkillTool,
   readSkillTool,
