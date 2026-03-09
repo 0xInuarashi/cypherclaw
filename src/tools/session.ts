@@ -1,22 +1,131 @@
-// tools/session-search.ts
-// -----------------------
-// Fuzzy search across all saved session transcripts.
+// tools/session.ts
+// ----------------
+// Tools for listing, reading, and searching saved session transcripts
+// stored in ~/.cypherclaw/sessions/.
 //
-// Searches message content in every session JSONL file and returns the
-// session names ranked by relevance — so the agent can identify which past
-// sessions are worth reading without loading every transcript up front.
-//
-// Results include:
-//   - session: the session name (pass to read_session to load the full transcript)
-//   - score: best fuzzy match score found across all messages in that session
-//   - snippet: the matching message excerpt
-//   - role: "user" or "assistant" — whose message matched
+// Use list_sessions to discover past sessions, search_sessions to find
+// relevant ones by content, and read_session to load a full transcript
+// for cross-session context.
 
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ToolDefinition } from "./types/types.js";
-import { resolveSessionsDir } from "../sessions/store.js";
+import { listSessions, loadSession, resolveSessionsDir } from "../sessions/store.js";
 import { fuzzyScore } from "./utils/fuzzy.js";
+
+// --- list_sessions ---
+
+const PAGE_SIZE = 100;
+
+export const sessionListTool: ToolDefinition = {
+  name: "list_sessions",
+  description:
+    "List saved sessions in .cypherclaw/sessions/, sorted by most recently updated. " +
+    "Returns session names, message counts, and last-updated timestamps. " +
+    `Results are paginated (${PAGE_SIZE} per page) — use the page parameter to fetch further pages. ` +
+    "Use read_session to load the full conversation history of a specific session.",
+
+  parameters: {
+    type: "object",
+    properties: {
+      page: {
+        type: "number",
+        description: `Page number to retrieve (1-based, ${PAGE_SIZE} sessions per page). Defaults to 1.`,
+      },
+    },
+    required: [],
+  },
+
+  async execute(args): Promise<string> {
+    const page = Math.max(1, Math.floor((args["page"] as number | undefined ?? 1)));
+    const offset = (page - 1) * PAGE_SIZE;
+
+    process.stderr.write(`\x1b[33m[list_sessions]\x1b[0m page=${page}\n`);
+
+    const all = await listSessions();
+
+    if (all.length === 0) {
+      return "(no sessions found)";
+    }
+
+    const totalPages = Math.ceil(all.length / PAGE_SIZE);
+    const slice = all.slice(offset, offset + PAGE_SIZE);
+
+    if (slice.length === 0) {
+      return `Page ${page} is out of range. Total pages: ${totalPages}.`;
+    }
+
+    const lines = slice.map((s) => {
+      const updated = s.updatedAt.toISOString();
+      return `${s.name}  (${s.messageCount} messages, updated ${updated})`;
+    });
+
+    const footer = totalPages > 1
+      ? `\n\nPage ${page} of ${totalPages} (${all.length} total sessions).`
+      : "";
+
+    return lines.join("\n") + footer;
+  },
+};
+
+// --- read_session ---
+
+const MAX_OUTPUT_CHARS = 40_000;
+const MAX_HISTORY_TURNS = 200;
+
+export const sessionReadTool: ToolDefinition = {
+  name: "read_session",
+  description:
+    "Read the conversation history of a saved session by name. " +
+    "Use list_sessions first to discover available session names. " +
+    "Returns a formatted transcript of the session's messages for cross-session context.",
+
+  parameters: {
+    type: "object",
+    properties: {
+      session: {
+        type: "string",
+        description: "Session name to read (as returned by list_sessions).",
+      },
+    },
+    required: ["session"],
+  },
+
+  async execute(args): Promise<string> {
+    const session = args["session"] as string;
+
+    process.stderr.write(`\x1b[33m[read_session]\x1b[0m ${session}\n`);
+
+    const messages = await loadSession(session, MAX_HISTORY_TURNS);
+
+    if (messages === null) {
+      return `Error: session not found: ${session}`;
+    }
+
+    if (messages.length === 0) {
+      return "(session exists but has no messages)";
+    }
+
+    const lines: string[] = [];
+    for (const msg of messages) {
+      const label = msg.role === "user" ? "USER" : "ASSISTANT";
+      lines.push(`[${label}]\n${msg.content}`);
+    }
+
+    const transcript = lines.join("\n\n---\n\n");
+
+    if (transcript.length > MAX_OUTPUT_CHARS) {
+      return (
+        transcript.slice(0, MAX_OUTPUT_CHARS) +
+        `\n\n[transcript truncated — ${transcript.length - MAX_OUTPUT_CHARS} chars omitted]`
+      );
+    }
+
+    return transcript;
+  },
+};
+
+// --- search_sessions ---
 
 const MAX_RESULTS = 20;
 const CONTENT_THRESHOLD = 0.25;
