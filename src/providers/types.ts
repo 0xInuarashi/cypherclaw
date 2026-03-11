@@ -62,5 +62,5 @@ export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
 // Returns the model's final text reply and the total token usage across
 // all tool-call rounds in this chat() invocation.
 export type Provider = {
-  chat(messages: Message[], tools?: ToolDefinition[]): Promise<{ text: string; usage: TokenUsage }>;
+  chat(messages: Message[], tools?: ToolDefinition[], signal?: AbortSignal): Promise<{ text: string; usage: TokenUsage }>;
 };

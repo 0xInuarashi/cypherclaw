@@ -16,7 +16,12 @@
 //
 // How to exit:
 //   - Type "exit" or "quit" and press Enter.
-//   - Press Ctrl+C (which closes the readline interface, triggering `close`).
+//   - Press Ctrl+C at the prompt (when the agent is idle).
+//
+// How to interrupt:
+//   - Press Ctrl+C while the agent is processing to abort the current turn
+//     without ending the chat. The agent's in-flight API call and tool loop
+//     are cancelled, and the prompt returns so you can continue chatting.
 
 import readline from "node:readline";
 import process from "node:process";
@@ -49,7 +54,25 @@ export async function runTerminalChannel(opts: TerminalChannelOptions): Promise<
       terminal: true,
     });
 
-  console.log('[cypherclaw] Terminal channel ready. Type "exit" or press Ctrl+C to quit.\n');
+  console.log('[cypherclaw] Terminal channel ready. Type "exit" or press Ctrl+C to quit.');
+  console.log("[cypherclaw] Press Ctrl+C while the agent is running to interrupt.\n");
+
+  // Tracks the AbortController for the currently in-flight agent turn.
+  // When non-null, the agent is processing and Ctrl+C should interrupt it.
+  // When null, the prompt is idle and Ctrl+C should exit the process.
+  let currentAbort: AbortController | null = null;
+
+  // Handle Ctrl+C: if the agent is running, abort the current turn and return
+  // to the prompt. If the agent is idle (prompt showing), exit the chat.
+  rl.on("SIGINT", () => {
+    if (currentAbort) {
+      currentAbort.abort();
+      currentAbort = null;
+      return;
+    }
+    console.log("\n[cypherclaw] Goodbye.");
+    rl.close();
+  });
 
   // The `ask` function represents one turn of the conversation loop.
   // It's defined as a named function (not a loop) so it can call itself
@@ -72,14 +95,24 @@ export async function runTerminalChannel(opts: TerminalChannelOptions): Promise<
         return;
       }
 
+      // Create a per-turn AbortController so Ctrl+C can cancel this turn.
+      const ac = new AbortController();
+      currentAbort = ac;
+
       // Pass the user's message to the agent and wait for a reply.
       try {
-        const reply = await opts.agent(trimmed);
+        const reply = await opts.agent(trimmed, ac.signal);
         console.log(`\nclaw> ${reply}\n`);
       } catch (error) {
-        // Don't crash on agent errors — print the problem and allow the user
-        // to try again.
-        console.error("[cypherclaw] Agent error:", error instanceof Error ? error.message : error);
+        if (ac.signal.aborted) {
+          console.log("\n[cypherclaw] Interrupted.\n");
+        } else {
+          // Don't crash on agent errors — print the problem and allow the user
+          // to try again.
+          console.error("[cypherclaw] Agent error:", error instanceof Error ? error.message : error);
+        }
+      } finally {
+        currentAbort = null;
       }
 
       // Start the next turn.

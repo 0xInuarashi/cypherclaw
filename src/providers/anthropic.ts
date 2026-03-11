@@ -92,7 +92,7 @@ export function createAnthropicProvider(opts: {
   const emit = opts.onEvent ?? (() => {});
 
   return {
-    async chat(messages: Message[], tools?: ToolDefinition[]): Promise<{ text: string; usage: TokenUsage }> {
+    async chat(messages: Message[], tools?: ToolDefinition[], signal?: AbortSignal): Promise<{ text: string; usage: TokenUsage }> {
       // Anthropic requires the system prompt as a top-level field.
       const systemMessage = messages.find((m) => m.role === "system");
 
@@ -109,6 +109,8 @@ export function createAnthropicProvider(opts: {
       let totalUsage: TokenUsage = zeroUsage();
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        signal?.throwIfAborted();
+
         // Emit the outbound request so the debugger can show what's being sent.
         emit({ type: "llm_request", round: round + 1, messages, tools: tools ?? [] });
 
@@ -137,12 +139,13 @@ export function createAnthropicProvider(opts: {
               "anthropic-version": ANTHROPIC_VERSION,
             },
             body: JSON.stringify(requestBody),
+            signal,
           });
           if (!res.ok) throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`);
           const json = (await res.json()) as AnthropicResponse;
           if (!json.content?.length) throw new Error(`Anthropic returned no content: ${JSON.stringify(json)}`);
           return json;
-        }, emit);
+        }, emit, signal);
 
         // Emit the raw response body exactly as received from the API.
         emit({ type: "llm_raw_response", body: data });

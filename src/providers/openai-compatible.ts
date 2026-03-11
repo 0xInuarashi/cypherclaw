@@ -96,7 +96,7 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
   const emit = opts.onEvent ?? (() => {});
 
   return {
-    async chat(messages: Message[], tools?: ToolDefinition[]): Promise<{ text: string; usage: TokenUsage }> {
+    async chat(messages: Message[], tools?: ToolDefinition[], signal?: AbortSignal): Promise<{ text: string; usage: TokenUsage }> {
       const nativeMessages: OAIMessage[] = toNativeMessages(messages);
       const oaiTools = tools && tools.length > 0 ? tools.map(toOAITool) : undefined;
       const toolMap = new Map(tools?.map((t) => [t.name, t]) ?? []);
@@ -104,6 +104,8 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
       let totalUsage: TokenUsage = zeroUsage();
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        signal?.throwIfAborted();
+
         // Emit the outbound request so the debugger can show what's being sent.
         emit({ type: "llm_request", round: round + 1, messages, tools: tools ?? [] });
 
@@ -126,12 +128,13 @@ export function createOpenAICompatibleProvider(opts: OpenAICompatibleOptions): P
               ...opts.extraHeaders,
             },
             body: JSON.stringify(requestBody),
+            signal,
           });
           if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
           const json = (await res.json()) as OAIResponse;
           if (!json.choices?.length) throw new Error(`API returned no choices: ${JSON.stringify(json)}`);
           return json;
-        }, emit);
+        }, emit, signal);
 
         // Emit the raw response body exactly as received from the API.
         emit({ type: "llm_raw_response", body: data });

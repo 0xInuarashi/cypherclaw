@@ -35,7 +35,7 @@ import { zeroUsage } from "../providers/types.js";
 import type { ToolDefinition } from "../tools/types/types.js";
 
 // The function signature every agent must satisfy.
-export type AgentFn = (message: string) => Promise<string>;
+export type AgentFn = (message: string, signal?: AbortSignal) => Promise<string>;
 
 // Configuration passed to createAgent at construction time.
 export type AgentOptions = {
@@ -64,7 +64,7 @@ export function createAgent(opts?: AgentOptions): AgentFn {
   // If initialHistory was provided (resuming a saved session), seed from it.
   const history: Message[] = opts?.initialHistory ? [...opts.initialHistory] : [];
 
-  return async (userMessage: string): Promise<string> => {
+  return async (userMessage: string, signal?: AbortSignal): Promise<string> => {
     // Echo stub: no provider → reflect the input back.
     // Still maintains history and fires onAfterTurn so sessions work even
     // without a real LLM (useful for testing the full pipeline).
@@ -89,7 +89,7 @@ export function createAgent(opts?: AgentOptions): AgentFn {
 
     // Call the provider. If tools are configured, the provider runs the
     // agentic loop internally and returns the final text reply plus token usage.
-    const { text: reply, usage } = await opts.provider.chat(messages, opts.tools);
+    const { text: reply, usage } = await opts.provider.chat(messages, opts.tools, signal);
 
     // Store the assistant's reply so future turns have full context.
     history.push({ role: "assistant", content: reply });
